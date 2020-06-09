@@ -10,13 +10,12 @@ from astropy.wcs import WCS
 
 
 def save_cutout(input_image, position, size, part):
-
     # Load the image and the WCS
     hdu = fits.open(input_image)[0]
     wcs = WCS(hdu.header)
-
-    # Make the cutout, including the WCS
-    cutout = Cutout2D(hdu.data, position=position, size=size, wcs=wcs, mode=partial, fill_Value=np.nan)
+    
+    # Make the cutout, including the WCS. Keep only 2D, drop additional axis with .celestial. SKA image has 4D so hdu.data[0,0,:,:].
+    cutout = Cutout2D(hdu.data[0,0,:,:], position=position, size=size, wcs=wcs.celestial, mode='partial', fill_value=np.nan)
 
     # Put the cutout image in the FITS HDU
     hdu.data = cutout.data
@@ -24,21 +23,22 @@ def save_cutout(input_image, position, size, part):
     # Update the FITS header with the cutout WCS
     hdu.header.update(cutout.wcs.to_header())
 
-    # Write the cutout to a new FITS file
-    cutout_filename = input_image[:-4]+'_'+part+'_.fits'
+    # Write the cutout to a new FITS file, labelled by n parts.
+    cutout_filename = input_image[:-5]+'_'+str(part)+'_.fits'
     hdu.writeto(cutout_filename, overwrite=True)
 
-
+    
+    
 if __name__ == '__main__':
-
-
-    input_image = '560mhz8hours.fits'
+    
     # load image to get properties
+    input_image = '560mhz8hours.fits'
     f = fits.open(input_image)
     # currently hard coded to only accept square images... fix later.
-    image_width = f[0].header.NAXIS1
+    im_width = f[0].header['NAXIS1']
+    f.close()
     # assuming input fits image is square, choose value to divide x and y axes into. total images = split_into**2.
-    split_into = 2
+    split_into = 4
     # get centre positions for each new fits image. assuming x=y.
     positions = np.array(range(1,(split_into*2),2))*(im_width/(split_into*2))
     # round to integer as in pixel coordinates.
@@ -48,10 +48,8 @@ if __name__ == '__main__':
     # create buffer of 10% so images overlap
     size = (im_width/split_into) * 1.1
     # size array needs to be same shape as position_coords_inpixels
-    size_inpixels = np.array([[size,size]]*split_into)
-    
+    size_inpixels = np.array([[size,size]]*split_into).astype(int)
     # loop over images to be cut out
     for i in range(split_into):
-        print(' Cutting out image {0} of {0}'.format(i, split_into))
-        save_cutout(input_image, position_coords_inpixels, size_inpixels, i)
-    
+        print(' Cutting out image {0} of {1}'.format(i+1, split_into))
+        save_cutout(input_image, tuple(position_coords_inpixels[i]), tuple(size_inpixels[i]), i)
