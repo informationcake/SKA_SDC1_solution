@@ -3,6 +3,7 @@
 # Breakup a large fits image into smaller ones, with overlap, and save to disk.
 # Sourecfinding is run on each cutout, and catalogues are sifted to remove duplicates from the overlap.
 
+import numpy as np
 from astropy.io import fits
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
@@ -32,6 +33,10 @@ if __name__ == '__main__':
 
 
     input_image = '560mhz8hours.fits'
+    # load image to get properties
+    f = fits.open(input_image)
+    # currently hard coded to only accept square images... fix later.
+    image_width = f[0].header.NAXIS1
     # assuming input fits image is square, choose value to divide x and y axes into. total images = split_into**2.
     split_into = 2
     # get centre positions for each new fits image. assuming x=y.
