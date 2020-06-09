@@ -45,6 +45,7 @@ From: ubuntu:18.04
       vim \
       wcslib-dev \
       wget \
+      screen \
 
     # Install python3 packages
     python3.6 -m pip install setuptools Cython
@@ -58,7 +59,8 @@ From: ubuntu:18.04
       wcsaxes \
       scikit-learn \
       umap-learn \
-      datashader
+      datashader \
+      memory_profiler \
 
     
     # Install boost python 1.63 with python 3
@@ -78,4 +80,4 @@ From: ubuntu:18.04
     && python3.6 -m pip install . \
     && cd .. \
     && rm -rf PyBDSF \
-    && echo 'export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}/usr/local/lib' >>$SINGULARITY_ENVIRONMENT
+    && echo 'export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}/usr/local/lib' >>$SINGULARITY_ENVIRONMENT 
