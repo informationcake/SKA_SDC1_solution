@@ -4,6 +4,9 @@
 # Sourecfinding is run on each cutout, and catalogues are sifted to remove duplicates from the overlap.
 
 import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+
 from astropy.io import fits
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
@@ -26,7 +29,7 @@ def save_cutout(input_image, position, size, part):
     # Write the cutout to a new FITS file, labelled by n parts.
     cutout_filename = input_image[:-5]+'_'+str(part)+'_.fits'
     hdu.writeto(cutout_filename, overwrite=True)
-
+    return hdu.data
     
     
 if __name__ == '__main__':
@@ -38,7 +41,7 @@ if __name__ == '__main__':
     im_width = f[0].header['NAXIS1']
     f.close()
     # assuming input fits image is square, choose value to divide x and y axes into. total images = split_into**2.
-    split_into = 4
+    split_into = 8
     # get centre positions for each new fits image. assuming x=y.
     positions = np.array(range(1,(split_into*2),2))*(im_width/(split_into*2))
     # round to integer as in pixel coordinates.
@@ -49,7 +52,13 @@ if __name__ == '__main__':
     size = (im_width/split_into) * 1.1
     # size array needs to be same shape as position_coords_inpixels
     size_inpixels = np.array([[size,size]]*split_into).astype(int)
-    # loop over images to be cut out
+    # loop over images to be cut out, save and make pngs
     for i in range(split_into):
         print(' Cutting out image {0} of {1}'.format(i+1, split_into))
-        save_cutout(input_image, tuple(position_coords_inpixels[i]), tuple(size_inpixels[i]), i)
+        data = save_cutout(input_image, tuple(position_coords_inpixels[i]), tuple(size_inpixels[i]), i)
+        plt.figure()
+        plt.imshow(data, origin='lower')
+        cutout.plot_on_original(color='white')
+        plt.colorbar()
+        plt.savefig('test.png')
+    
