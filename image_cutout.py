@@ -43,6 +43,8 @@ if __name__ == '__main__':
     f.close()
     # assuming input fits image is square, choose value to divide x and y axes into. total images = split_into**2.
     split_into = 4
+    print(' Original fits image dimensions: {0}'.format(im_width))
+    print(' Cutting into {0} images of dimensions {1}'.format(split_into**2, im_width/split_into))
     # get centre positions for each new fits image. assuming x=y.
     positions = np.array(range(1,(split_into*2),2))*(im_width/(split_into*2))
     # round to integer as in pixel coordinates.
