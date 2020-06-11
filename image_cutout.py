@@ -31,44 +31,64 @@ def save_cutout(input_image, position, size, part):
     hdu.writeto(cutout_filename, overwrite=True)
     return cutout
     
-    
-if __name__ == '__main__':
-    
-    # load image to get properties
-    input_image = '560mhz8hours.fits'
+def do_image_chopping(input_image, split_into):
     f = fits.open(input_image)
     # currently hard coded to only accept square images... fix later.
-    im_width = f[0].header['NAXIS1']
-    data = f[0].data[0,0,:,:]
-    f.close()
-    # assuming input fits image is square, choose value to divide x and y axes into. total images = split_into**2.
-    split_into = 4
-    print(' Original fits image dimensions: {0}'.format(im_width))
+    im_width = f[0].header['NAXIS1'] # get image width
+    data = f[0].data[0,0,:,:] # get image data, drop first two axes (SKA image is 4D for some reason?)
+    f.close() # keep tidy.
+    
+    print(' Input fits image dimensions: {0}'.format(im_width))
     print(' Cutting into {0} images of dimensions {1}'.format(split_into**2, im_width/split_into))
-    # get centre positions for each new fits image. assuming x=y.
+    
+    # get centre positions for each new fits image. assuming x=y. divide image width by split_into*2
     positions = np.array(range(1,(split_into*2),2))*(im_width/(split_into*2))
-    # round to integer as in pixel coordinates.
-    positions = positions.astype(int) # keep as original 
+    # round to integer as in pixel coordinates. this approximation shouldn't matter since we include a buffer later
+    positions = positions.astype(int) # keep as original
     positions_x = positions # make copy to append to in loop
     positions_y = positions # make copy to append to in loop
-    # stack them to create list of positions of length = split_into**2.
+    
+    # Make a 2D array of all centre positions. length = split_into**2.
     for i in range(split_into-1):
-        positions_x = np.hstack(( positions_x, positions ))
-        positions_y = np.hstack(( positions_y, np.roll(positions,i+1) ))
+        # stack x coords repeating split_into times.
+        positions_x = np.hstack(( positions_x, positions ))  # e.g. [ x1, x2, x3, x4,  x1, x2, x3, x4,  repeat split_into times] 
+        # stack y coords, but np.roll shifts array indices by 1 to get different combinations
+        positions_y = np.hstack(( positions_y, np.roll(positions,i+1) )) # e.g. [ (y1, y2, y3, y4), (y2, y3, y4, y1), (y3, y4, y1, y2), ... ]
+    
     # create 2D array with coordinates: [ [x1,y1], [x2,y2], [x3,y3]... ]
     position_coords_inpixels = np.array([positions_x,positions_y]).T
-    # create buffer of 10% so images overlap
-    size = (im_width/split_into) * 1.1
+    # create buffer of 10% so images overlap. This can be small... only needs to account for image edge cutting through 
+    size = (im_width/split_into) * 1.05 # e.g. 4000 pixel image becomes 4200. sifting to remove duplicates later
     # size array needs to be same shape as position_coords_inpixels
     size_inpixels = np.array([[size,size]]*(split_into**2)).astype(int)
+    
     # loop over images to be cut out
-    plt.figure()
+    plt.figure() # plot original image and overlay cutout boundaries at the end.
     plt.imshow(data, origin='lower')
-    colourlist=iter(cm.rainbow(np.linspace(0,1,split_into**2)))
+    colourlist=iter(cm.rainbow(np.linspace(0,1,split_into**2))) # each cutout a different colour
     for i in range(split_into**2):
         print(' Cutting out image {0} of {1}'.format(i+1, split_into**2))
         cutout = save_cutout(input_image, tuple(position_coords_inpixels[i]), tuple(size_inpixels[i]), i)
         cutout.plot_on_original(color=next(colourlist))
     print(' Saving cutout arrangement as {0}'.format(input_image+'_cutouts.png'))
-    plt.savefig(input_image+'_cutouts.png')
+    plt.savefig(input_image+'_cutout_annotation.png')
+  
+
+
+if __name__ == '__main__':
+    
+    # load image to get properties
+    input_image = '560mhz8hours.fits'
+    
+    # divide x and y axes by split_into. This gives split_into**2 output images
+    split_into = 4
+    
+    # cut images and save to disk
+    do_image_chopping(input_image, split_into)
+    
+    # do source finding
+    # multithread this part
  
+
+    # sift output catalogues to remove duplicates from overlapping images
+    
