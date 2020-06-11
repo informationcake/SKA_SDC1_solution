@@ -5,10 +5,29 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import multiprocessing
+import itertools
+import bdsf
+import glob
+
 from matplotlib.pyplot import cm
 from astropy.io import fits
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
+from memory_profiler import profile
+
+# list of functions
+# save_cutout
+# do_image_chopping
+# do_sourcefinding
+
+
+
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+
+
+
 
 
 def save_cutout(input_image, position, size, part):
@@ -27,10 +46,22 @@ def save_cutout(input_image, position, size, part):
     hdu.header.update(cutout.wcs.to_header())
 
     # Write the cutout to a new FITS file, labelled by n parts.
-    cutout_filename = input_image[:-5]+'_'+str(part)+'.fits'
+    cutout_filename = input_image[:-5]+'_'+str(part)+'_cutout.fits'
     hdu.writeto(cutout_filename, overwrite=True)
     return cutout
     
+
+
+
+
+
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+
+
+
+
+
 def do_image_chopping(input_image, split_into):
     f = fits.open(input_image)
     # currently hard coded to only accept square images... fix later.
@@ -72,9 +103,47 @@ def do_image_chopping(input_image, split_into):
         cutout.plot_on_original(color=next(colourlist))
     print(' Saving cutout arrangement as {0}'.format(input_image+'_cutouts.png'))
     plt.savefig(input_image+'_cutout_annotation.png')
-  
+    
 
 
+
+
+
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+
+
+
+
+
+# @profile enables RAM profiling. Run as normal and it will print out RAM stats at the end. Or run as 'mprof run sourcefind.py'. Then 'mprof plot' to get RAM vs time plot.
+@profile
+def do_sourcefinding(imagename):
+    # get beam info manually. SKA image seems to cause PyBDSF issues finding this info.
+    f = fits.open(imagename)
+    beam_maj = f[0].header['BMAJ']
+    beam_min = f[0].header['BMIN']
+    beam_pa = f[0].header['BMPA']
+    f.close()
+    # using some sensible and thorough hyper-parameters. PSF_vary and adaptive_rms_box is more computationally intensive, but needed.
+    img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
+        atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
+        output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
+        blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30)
+    return img
+
+
+
+
+
+
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+    
+    
+    
+
+    
 if __name__ == '__main__':
     
     # load image to get properties
@@ -83,12 +152,16 @@ if __name__ == '__main__':
     # divide x and y axes by split_into. This gives split_into**2 output images
     split_into = 4
     
-    # cut images and save to disk
+    # cut up images and save to disk
     do_image_chopping(input_image, split_into)
     
-    # do source finding
-    # multithread this part
+    # do source finding. Multithread this part
+    # find list of image names
+    imagenames = glob.glob('*_cutout.fits')
+    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        pool.starmap(do_sourcefinding, imagenames) 
+        pool.close()
+        pool.join()
  
-
     # sift output catalogues to remove duplicates from overlapping images
     
