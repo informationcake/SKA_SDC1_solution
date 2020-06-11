@@ -6,7 +6,7 @@ from memory_profiler import profile
 
 # function allows it to be profiled with @profile. Run as 'mprof run sourcefind.py'. Then 'mprof plot' to get RAM vs time plot.
 @profile
-def do_pybdsf(imagename):
+def do_sourcefinding(imagename):
     img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
         atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
         output_opts=True, output_all=True, opdir_overwrite='append', beam=(4.1666e-4, 4.1666e-4, 0),\
@@ -15,6 +15,6 @@ def do_pybdsf(imagename):
 
 if __name__ == '__main__':
 
-    imagename = 'a560mhz8hours.fits'
+    imagename = '560mhz8hours.fits'
     
-    do_pybdsf(imagename)
+    do_sourcefinding(imagename)
