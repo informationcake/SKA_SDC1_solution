@@ -1,5 +1,4 @@
 # Python 3.6. Written by Alex Clarke
-# Adapted from https://docs.astropy.org/en/stable/nddata/utils.html
 # Breakup a large fits image into smaller ones, with overlap, and save to disk.
 # Sourecfinding is run on each cutout, and catalogues are sifted to remove duplicates from the overlap.
 
@@ -13,6 +12,7 @@ from astropy.wcs import WCS
 
 
 def save_cutout(input_image, position, size, part):
+    # Adapted from https://docs.astropy.org/en/stable/nddata/utils.html
     # Load the image and the WCS
     hdu = fits.open(input_image)[0]
     wcs = WCS(hdu.header)
