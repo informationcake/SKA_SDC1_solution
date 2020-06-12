@@ -29,7 +29,7 @@ from memory_profiler import profile
 
 
 
-
+@profile
 def save_cutout(input_image, position, size, part):
     # Adapted from https://docs.astropy.org/en/stable/nddata/utils.html
     # Load the image and the WCS
@@ -61,12 +61,12 @@ def save_cutout(input_image, position, size, part):
 
 
 
-
+@profile
 def do_image_chopping(input_image, split_into):
     f = fits.open(input_image)
     # currently hard coded to only accept square images... fix later.
     im_width = f[0].header['NAXIS1'] # get image width
-    data = f[0].data[0,0,:,:] # get image data, drop first two axes (SKA image is 4D for some reason?)
+    data = f[0].data[0,0,:,:] # get image data, drop first two axes.
     f.close() # keep tidy.
     
     print(' Input fits image dimensions: {0}'.format(im_width))
@@ -88,7 +88,7 @@ def do_image_chopping(input_image, split_into):
     
     # create 2D array with coordinates: [ [x1,y1], [x2,y2], [x3,y3]... ]
     position_coords_inpixels = np.array([positions_x,positions_y]).T
-    # create buffer of 10% so images overlap. This can be small... only needs to account for image edge cutting through 
+    # create buffer of 5% so images overlap. This can be small... only needs to account for image edge cutting through 
     size = (im_width/split_into) * 1.05 # e.g. 4000 pixel image becomes 4200. sifting to remove duplicates later
     # size array needs to be same shape as position_coords_inpixels
     size_inpixels = np.array([[size,size]]*(split_into**2)).astype(int)
