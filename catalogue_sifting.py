@@ -44,18 +44,18 @@ def combine_cats():
     
     
     
-    def sift_catalogue(cat, tolerance):
-        # Generate list of coordinates from catalogue
-        c = SkyCoord(cat['RA'], cat['DEC'], unit=(u.deg,u.deg))
-        # Determining the nearest neighbour of each source
-        idx, sep2d, dist3d = c.match_to_catalog_sky(c, 2) # nthneighborint=2 since we are matching a cat to itself
-        # Identifying sources closer than the tolerance threshold, which are not from the same mosaic
-        inds = np.nonzero( (sep2d < tolerance*u.deg) )[0] # indices where separation is less than tolerance
-        idx[inds] # get idx of these sources within tolerance
-        cat_deleted = cat[idx[inds]] # get deleted rows for plotting later
-        cat_sifted = cat.remove_rows(idx[inds]) # sifted catalogue
-        
-        return cat_sifted, cat_deleted
+def sift_catalogue(cat, tolerance):
+    # Generate list of coordinates from catalogue
+    c = SkyCoord(cat['RA'], cat['DEC'], unit=(u.deg,u.deg))
+    # Determining the nearest neighbour of each source
+    idx, sep2d, dist3d = c.match_to_catalog_sky(c, 2) # nthneighborint=2 since we are matching a cat to itself
+    # Identifying sources closer than the tolerance threshold, which are not from the same mosaic
+    inds = np.nonzero( (sep2d < tolerance*u.deg) )[0] # indices where separation is less than tolerance
+    #idx[inds] # get idx of these sources within tolerance
+    cat_deleted = cat[idx[inds]] # get deleted rows for plotting later
+    cat.remove_rows(idx[inds]) # sifted catalogue
+    print(len(cat_deleted), len(cat))
+    return cat, cat_deleted
       
       
       
@@ -78,11 +78,12 @@ def plot_test(filename, master_catalogue, label='', zoomin=True):
     data[data>1e-4] = 1e-4 # max pixel brightness to display
     ax = plt.subplot(projection=wcs)
     norm = simple_norm(data, 'log')
-    ax.imshow(data, norm=norm)
+    im = ax.imshow(data, norm=norm)
     ax.scatter(master_catalogue['RA'], master_catalogue['DEC'], transform=ax.get_transform('fk5'), s=300, edgecolor='white', facecolor='none')
     plt.colorbar(im)
     if zoomin==True:
         ax.axis([15000,16000,15000,16000],transform=ax.get_transform('world')) # zoom in?
+    plt.show()
     plt.savefig('image'+label+'.png')
 
 
@@ -103,16 +104,17 @@ if __name__ == '__main__':
     
     # Combine catalgoues into single FITS catalogues
     master_catalogue = combine_cats()
-    
+
     # Sift catalogue to remove duplicate matches
-    master_catalogue_sifted, removed_cat = sift_catalogue(master_catalogue, tolerance=2/3600) # tolerance=2 arcsec
-    print(len(master_catalogue_sifted), len(removed_cat))
+    master_catalogue_sifted, removed_cat = sift_catalogue(master_catalogue, tolerance=1/3600) # tolerance=2 arcsec
+    print('There are {0} sources, after removing {1} duplicates'.format( len(master_catalogue_sifted), len(removed_cat) ) )
 
     
     # plot field and overlay catalogue sources
     filename = '560mhz8hours.fits' # place in directory
-    plot_test(filename, master_catalogue, zoomin=True, label='sifted')
-    plot_test(filename, removed_cat, zoomin=False, label='removed_sources')
+    plot_test(filename, master_catalogue_sifted, zoomin=True, label='sifted')
+    plot_test(filename, master_catalogue_sifted, zoomin=False, label='sifted_zoom')
+    plot_test(filename, removed_cat, zoomin=False, label='removed_duplicate_sources')
     
     
     
