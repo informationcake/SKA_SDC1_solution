@@ -69,7 +69,7 @@ def sift_catalogue(cat, tolerance):
     
 
 
-def plot_test(filename, master_catalogue, label='', zoomin=True):
+def plot_test(filename, cat, label='', zoomin=True):
     #filename = '560mhz8hours.fits'
     hdu = fits.open(filename)[0]
     wcs = WCS(hdu.header).celestial # get data wcs
@@ -79,7 +79,7 @@ def plot_test(filename, master_catalogue, label='', zoomin=True):
     ax = plt.subplot(projection=wcs)
     norm = simple_norm(data, 'log')
     im = ax.imshow(data, norm=norm)
-    ax.scatter(master_catalogue['RA'], master_catalogue['DEC'], transform=ax.get_transform('fk5'), s=300, edgecolor='white', facecolor='none')
+    ax.scatter(cat['RA'], cat['DEC'], transform=ax.get_transform('fk5'), s=300, edgecolor='white', facecolor='none')
     plt.colorbar(im)
     if zoomin==True:
         ax.axis([15000,16000,15000,16000],transform=ax.get_transform('world')) # zoom in?
