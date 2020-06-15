@@ -1,12 +1,15 @@
 # Python 3.6. Written by Alex Clarke
 # Combine catalogues from image cutouts, sift to remove duplicates, create quality control figures and plots
 
+import numpy as np
 from astropy.table import Table, vstack, unique
 import glob, matplotlib
 from matplotlib import pyplot as plt
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.visualization import simple_norm
+from astropy import units as u
+from astropy.coordinates import SkyCoord
 
 
 
@@ -41,22 +44,32 @@ def combine_cats():
     
     
     
-    def sift_catalogue():
-
-
+    def sift_catalogue(cat, tolerance):
+        # Generate list of coordinates from catalogue
+        c = SkyCoord(cat['RA'], cat['DEC'], unit=(u.deg,u.deg))
+        # Determining the nearest neighbour of each source
+        idx, sep2d, dist3d = c.match_to_catalog_sky(c, 2) # nthneighborint=2 since we are matching a cat to itself
+        # Identifying sources closer than the tolerance threshold, which are not from the same mosaic
+        inds = np.nonzero( (sep2d < tolerance*u.deg) )[0] # indices where separation is less than tolerance
+        idx[inds] # get idx of these sources within tolerance
+        cat_deleted = cat[idx[inds]] # get deleted rows for plotting later
+        cat_sifted = cat.remove_rows(idx[inds]) # sifted catalogue
+        
+        return cat_sifted, cat_deleted
+      
       
       
   
+
 
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
 
     
     
     
-    
 
 
-def plot_test(filename, master_catalogue, zoomin=True):
+def plot_test(filename, master_catalogue, label='', zoomin=True):
     #filename = '560mhz8hours.fits'
     hdu = fits.open(filename)[0]
     wcs = WCS(hdu.header).celestial # get data wcs
@@ -70,7 +83,7 @@ def plot_test(filename, master_catalogue, zoomin=True):
     plt.colorbar(im)
     if zoomin==True:
         ax.axis([15000,16000,15000,16000],transform=ax.get_transform('world')) # zoom in?
-    plt.savefig('test_imagecentre.png')
+    plt.savefig('image'+label+'.png')
 
 
 
@@ -92,13 +105,14 @@ if __name__ == '__main__':
     master_catalogue = combine_cats()
     
     # Sift catalogue to remove duplicate matches
-    #master_catalogue_sifted = sift_catalogue()
-    
+    master_catalogue_sifted, removed_cat = sift_catalogue(master_catalogue, tolerance=2/3600) # tolerance=2 arcsec
+    print(len(master_catalogue_sifted), len(removed_cat))
+
     
     # plot field and overlay catalogue sources
     filename = '560mhz8hours.fits' # place in directory
-    plot_test(filename, master_catalogue, zoomin=True)
-    plot_test(filename, master_catalogue, zoomin=False)
+    plot_test(filename, master_catalogue, zoomin=True, label='sifted')
+    plot_test(filename, removed_cat, zoomin=False, label='removed_sources')
     
     
     
