@@ -125,7 +125,8 @@ def do_sourcefinding(imagename):
     f = fits.open(imagename)
     beam_maj = f[0].header['BMAJ']
     beam_min = f[0].header['BMIN']
-    beam_pa = f[0].header['BMPA']
+    #beam_pa = f[0].header['BPA'] # not in SKA fits header, but we know it's circular
+    beam_pa = 0
     f.close()
     # using some sensible and thorough hyper-parameters. PSF_vary and adaptive_rms_box is more computationally intensive, but needed.
     img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
