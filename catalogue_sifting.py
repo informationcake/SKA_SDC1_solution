@@ -106,7 +106,7 @@ if __name__ == '__main__':
     master_catalogue = combine_cats()
 
     # Sift catalogue to remove duplicate matches
-    master_catalogue_sifted, removed_cat = sift_catalogue(master_catalogue, tolerance=1/3600) # tolerance=2 arcsec
+    master_catalogue_sifted, removed_cat = sift_catalogue(master_catalogue, tolerance=0.5/3600) # tolerance=0.5 arcsec
     print('There are {0} sources, after removing {1} duplicates'.format( len(master_catalogue_sifted), len(removed_cat) ) )
 
     
