@@ -2,13 +2,14 @@
 # Combine catalogues from image cutouts, sift to remove duplicates, create quality control figures and plots
 
 import numpy as np
-from astropy.table import Table, vstack, unique
 import glob, matplotlib
 from matplotlib import pyplot as plt
+
+from astropy import units as u
+from astropy.table import Table, vstack, unique, setdiff
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.visualization import simple_norm
-from astropy import units as u
 from astropy.coordinates import SkyCoord
 
 
@@ -92,7 +93,7 @@ def plot_test(filename, cat, label='', zoomin=True):
     if zoomin==True:
         ax.axis([15000,16000,15000,16000],transform=ax.get_transform('world')) # zoom in?
         #ax.axis([ra1,ra2,dec1,dec2],transform=ax.get_transform('fk5')) # ra/dec deciaml degrees coords
-    plt.show()
+    #plt.show()
     plt.savefig('image'+label+'.png')
 
 
