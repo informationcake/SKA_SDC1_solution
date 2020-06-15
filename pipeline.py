@@ -20,7 +20,6 @@ from memory_profiler import profile
 # save_cutout
 # do_image_chopping
 # do_sourcefinding
-# combine catalogues
 
 
 
