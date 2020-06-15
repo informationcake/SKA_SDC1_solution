@@ -20,6 +20,7 @@ from memory_profiler import profile
 # save_cutout
 # do_image_chopping
 # do_sourcefinding
+# combine catalogues
 
 
 
@@ -95,6 +96,8 @@ def do_image_chopping(input_image, split_into):
     
     # loop over images to be cut out
     plt.figure() # plot original image and overlay cutout boundaries at the end.
+    data[data<1e-7]=1e-7 # min pixel brightness to display
+    data[data>1e-5]=1e-5 # max pixel brightness to display
     plt.imshow(data, origin='lower')
     colourlist=iter(cm.rainbow(np.linspace(0,1,split_into**2))) # each cutout a different colour
     for i in range(split_into**2):
@@ -155,13 +158,16 @@ if __name__ == '__main__':
     # cut up images and save to disk
     do_image_chopping(input_image, split_into)
     
-    # do source finding. Multithread this part
+    # do source finding. Multithread this part?
+    
     # find list of image names
     imagenames = glob.glob('*_cutout.fits')
-    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
-        pool.starmap(do_sourcefinding, imagenames) 
-        pool.close()
-        pool.join()
- 
-    # sift output catalogues to remove duplicates from overlapping images
-    
+    for image in imagenames:
+        do_sourcefinding(image)
+    # multirpocessing fails with mem error
+    #with multiprocessing.ThreadPool(processes=multiprocessing.cpu_count()) as pool:
+    #    pool.map(do_sourcefinding, imagenames) 
+    #    pool.close()
+    #    pool.join()
+        
+    # Gather files by hand and place then .srl.FITS files into the same directory
