@@ -1,5 +1,5 @@
 # Python 3.6. Written by Alex Clarke
-# Combine catalogues from image cutouts, sift to remove duplicates, create quality control figures and plots
+# Combine catalogues from image cutouts, sift to remove duplicates, create quality control figures and plots, save catalogue to disk.
 
 import numpy as np
 import glob, matplotlib, pickle
@@ -44,12 +44,12 @@ def save_obj(obj, name ):
 # Look for all catalogues in current directory and merge them
 def combine_cats():
     catalogues = glob.glob('*.srl.FITS')
-    # initialise master catalogue and append to it
-    master_catalogue = Table.read(catalogues[0])
+    # initialise main catalogue and append to it
+    main_catalogue = Table.read(catalogues[0])
     for catalogue in catalogues[1:]:
         print(catalogue)
-        master_catalogue = vstack([master_catalogue,Table.read(catalogue)], join_type='exact')
-    return master_catalogue
+        main_catalogue = vstack([main_catalogue,Table.read(catalogue)], join_type='exact')
+    return main_catalogue
 
 
 
@@ -147,8 +147,8 @@ if __name__ == '__main__':
     
     # plot field and overlay catalogue sources
     #filename = '560mhz8hours.fits' # place in directory
-    #plot_test(filename, master_catalogue_sifted, zoomin=True, label='sifted')
-    #plot_test(filename, master_catalogue_sifted, zoomin=False, label='sifted_zoom')
+    #plot_test(filename, main_catalogue_sifted, zoomin=True, label='sifted')
+    #plot_test(filename, main_catalogue_sifted, zoomin=False, label='sifted_zoom')
     #plot_test(filename, removed_cat, zoomin=False, label='removed_duplicate_sources')
     
     
