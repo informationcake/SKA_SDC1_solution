@@ -83,7 +83,7 @@ def score_from_srl(srl_path, truth_path, freq):
     truth_df = load_truth_df(truth_path)
 
     scorer = Sdc1Scorer(cat_df, truth_df, freq)
-    score = scorer.run(train=True)
+    score = scorer.run(train=True, detail=True, mode=1)
 
     return score
 
@@ -116,7 +116,7 @@ def cat_df_from_srl(srl_path):
 
     # Flux and core fraction
     cat_df["flux"] = srl_df["Total_flux"]
-    cat_df["core_frac"] = srl_df["Peak_flux"] / srl_df["Total_flux"]
+    cat_df["core_frac"] = (srl_df["Peak_flux"] - srl_df["Total_flux"]).abs()
 
     # Bmaj, Bmin (convert deg -> arcsec) and PA
     # TODO: Source list outputs FWHM as major/minor axis measures, but this should
