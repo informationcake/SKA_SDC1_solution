@@ -54,7 +54,37 @@ if __name__ == '__main__':
     
     # Load sifted catalogue in, assuming it has been saved as a Pandas Dataframe
     cat = load_obj('main_catalogue_sifted_df')
-    
-    
+    # fix source code type weirdness
+    cat['s_code_str'] = cat['S_Code'].astype('str').str[2:-1]
+    # Make resolved column quantifying how extended a source is
+    cat['resolved'] = ( cat['Total_flux'] - cat['Peak_flux'] ).abs()
+
+    # Investigations for now, tidy up into functions soon...
+
+
+    # Plot histogram of resolved, coloured by source type
+    # S = a single-Gaussian source that is the only source in the island
+    # C = a single-Gaussian source in an island with other sources
+    # M = a multi-Gaussian source
+    bins_res = 10 ** np.linspace(np.log10(1e-8), np.log10(10), 100)
+    plt.hist(cat[cat.s_code_str=='S'].resolved, bins=bins_res, histtype='step', color='red', label='S')
+    plt.hist(cat[cat.s_code_str=='C'].resolved, bins=bins_res, histtype='step', color='blue', label='C')
+    plt.hist(cat[cat.s_code_str=='M'].resolved, bins=bins_res, histtype='step', color='green', label='M')
+    plt.xlabel('|Total flux - Peak flux|')
+    plt.ylabel('Number')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    plt.savefig('Resolved_histogram.png')
+
+
+    # Plot total flux vs peak flux
+    plt.scatter(cat.Total_flux, cat.Peak_flux,s=0.4)
+    plt.xlabel('Total flux, Jy')
+    plt.ylabel('Peak flux, Jy/beam')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.savefig('Total_Vs_Peak.png')
+       
     
 
