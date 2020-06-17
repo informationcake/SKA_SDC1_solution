@@ -75,7 +75,7 @@ if __name__ == '__main__':
     plt.xscale('log')
     plt.yscale('log')
     plt.legend()
-    plt.savefig('Resolved_histogram.png')
+    plt.savefig('Histogram_resolved.png')
 
 
     # Plot total flux vs peak flux
@@ -85,6 +85,23 @@ if __name__ == '__main__':
     plt.xscale('log')
     plt.yscale('log')
     plt.savefig('Total_Vs_Peak.png')
-       
     
+       
+    # Histogram of peak and total fluxes
+    bins_res = 10 ** np.linspace(np.log10(1e-8), np.log10(10), 100)
+    plt.hist(cat.Total_flux, bins=bins_flux, histtype='step', label='Total flux')
+    plt.hist(cat.Peak_flux, bins=bins_flux, histtype='step', label='Peak flux')
+    #plt.hist(cat.Isl_Total_flux, bins=bins_flux, histtype='step', label='Island total flux')
+    plt.xlabel('Jy')
+    plt.ylabel('Number')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    plt.savefig('Histogram_PeakTotal_flux.png')
 
+
+
+
+
+
+    #
