@@ -2,7 +2,7 @@
 # Combine catalogues from image cutouts, sift to remove duplicates, create quality control figures and plots
 
 import numpy as np
-import glob, matplotlib
+import glob, matplotlib, pickle
 from matplotlib import pyplot as plt
 
 from astropy import units as u
@@ -12,11 +12,11 @@ from astropy.wcs import WCS
 from astropy.visualization import simple_norm
 from astropy.coordinates import SkyCoord
 
-
-
-
-  
-
+        
+        
+        
+        
+        
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
 
     
@@ -24,6 +24,24 @@ from astropy.coordinates import SkyCoord
     
     
 
+# Loading/saving python data objects
+def save_obj(obj, name ):
+    with open(name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+        
+        
+        
+        
+        
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+    
+    
+    
+    
+    
+# Look for all catalogues in current directory and merge them
 def combine_cats():
     catalogues = glob.glob('*.srl.FITS')
     # initialise master catalogue and append to it
@@ -43,8 +61,9 @@ def combine_cats():
     
     
     
-    
-    
+  
+  
+# Search for duplicate entries in a catalogue and remove them
 def sift_catalogue(cat, tolerance, iterations):
     # sift catalogue several times to account for matches in up to 4 images
     print(' There are initially {0} sources...'.format(len(cat)))
@@ -78,6 +97,7 @@ def sift_catalogue(cat, tolerance, iterations):
     
 
 
+# Make some basic test plots of the field with detected/filtered sources
 def plot_test(filename, cat, label='', zoomin=True):
     #filename = '560mhz8hours.fits'
     hdu = fits.open(filename)[0]
@@ -110,20 +130,26 @@ def plot_test(filename, cat, label='', zoomin=True):
     
 if __name__ == '__main__':
     
-    # Copy catalogues (*.srl.FITS) into a common directory with the main fits image (32k x 32k)
+    # Must copy catalogues (*.srl.FITS) into a common directory with the main fits image (32k x 32k)
     
     # Combine catalgoues into single FITS catalogues
-    master_catalogue = combine_cats()
+    main_catalogue = combine_cats()
 
     # Sift catalogue to remove duplicate matches
-    master_catalogue_sifted, removed_cat = sift_catalogue(master_catalogue, tolerance=0.5/3600, iterations=5) # tolerance=0.5 arcsec
-    #print('There are {0} sources, after removing {1} duplicates'.format( len(master_catalogue_sifted), len(removed_cat) ) )
+    main_catalogue_sifted, removed_cat = sift_catalogue(main_catalogue, tolerance=0.5/3600, iterations=5) # tolerance=0.5 arcsec
+    
+    # Write data to disk
+    main_catalogue_sifted.write('main_catalogue_sifted.fits')
+    removed_cat.write('removed_catalogue_sifted.fits')
+    # Also save as Pandas DataFrames in Pickle format
+    df = main_catalogue_sifted.to_pandas()
+    save_obj(df, 'main_catalogue_sifted_df')
     
     # plot field and overlay catalogue sources
-    filename = '560mhz8hours.fits' # place in directory
-    plot_test(filename, master_catalogue_sifted, zoomin=True, label='sifted')
-    plot_test(filename, master_catalogue_sifted, zoomin=False, label='sifted_zoom')
-    plot_test(filename, removed_cat, zoomin=False, label='removed_duplicate_sources')
+    #filename = '560mhz8hours.fits' # place in directory
+    #plot_test(filename, master_catalogue_sifted, zoomin=True, label='sifted')
+    #plot_test(filename, master_catalogue_sifted, zoomin=False, label='sifted_zoom')
+    #plot_test(filename, removed_cat, zoomin=False, label='removed_duplicate_sources')
     
     
     
