@@ -2,6 +2,8 @@ import argparse
 
 import pandas as pd
 from ska_sdc import Sdc1Scorer
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import LabelEncoder
 
 # Catalogue columns for SDC1 submissions
 CAT_COLUMNS = [
@@ -83,7 +85,7 @@ def score_from_srl(srl_path, truth_path, freq):
     truth_df = load_truth_df(truth_path)
 
     scorer = Sdc1Scorer(cat_df, truth_df, freq)
-    score = scorer.run(train=True, detail=True, mode=1)
+    score = scorer.run(train=True, mode=1)
 
     return score
 
@@ -96,9 +98,8 @@ def cat_df_from_srl(srl_path):
     Args:
         srl_path (`str`): Path to source list (.srl file)
     """
-    srl_df = pd.read_csv(
-        srl_path, skiprows=6, names=SRL_COLUMNS, delim_whitespace=True,
-    )
+    srl_df = srl_as_df(srl_path)
+
     # Instantiate catalogue DataFrame
     cat_df = pd.DataFrame()
 
@@ -135,6 +136,77 @@ def cat_df_from_srl(srl_path):
     return cat_df
 
 
+def srl_as_df(srl_path):
+    """
+    Load the source list output by PyBDSF as a pd.DataFrame
+
+    Args:
+        srl_path (`str`): Path to source list (.srl file)
+    """
+    srl_df = pd.read_csv(
+        srl_path, skiprows=6, names=SRL_COLUMNS, delim_whitespace=True,
+    )
+    return srl_df
+
+
+def predict_size_class(srl_path, truth_path, freq):
+    """
+    Given a PyBDSF source list, create an SDC1 catalogue, obtain the
+    match catalogue from the score pipeline, and use the truth catalogue's size
+    class values, together with the source list properties, to build a model
+    that can predict the size class for unseen samples
+
+    Args:
+        srl_path (`str`): Path to source list (.srl file)
+        truth_path (`str`): Path to training truth catalogue
+        freq (`int`): Image frequency band (560, 1400 or 9200 MHz)
+    """
+    # Get match_df from scorer:
+    srl_df = srl_as_df(srl_path)
+    cat_df = cat_df_from_srl(srl_path)
+    truth_df = load_truth_df(truth_path)
+
+    scorer = Sdc1Scorer(cat_df, truth_df, freq)
+    score = scorer.run(train=True, detail=True, mode=1)
+
+    # Use the Source_id / id columns as the DataFrame index for easy cross-mapping
+    match_df = score.match_df.set_index("id")
+    srl_df = srl_df.set_index("Source_id")
+
+    # Set the true size ID for the source list, drop NaN values (unmatched sources)
+    srl_df["size_id_t"] = match_df["size_id_t"]
+    srl_df = srl_df.dropna()
+
+    # Columns to drop before model building:
+    cols_to_drop = [
+        "Isl_id",
+        "RA",
+        "E_RA",
+        "DEC",
+        "E_DEC",
+        "RA_max",
+        "E_RA_max",
+        "DEC_max",
+        "E_DEC_max",
+    ]
+    srl_df = srl_df.drop(cols_to_drop, axis=1)
+
+    # Define the categorical columns to be encoded:
+    cat_cols = ["S_Code"]
+    for col in cat_cols:
+        lbl = LabelEncoder()
+        lbl.fit(list(srl_df[col].values.astype("str")))
+        srl_df[col] = lbl.transform(list(srl_df[col].values.astype("str")))
+
+    # size_id_t already encoded; convert to int
+    srl_df["size_id_t"] = srl_df["size_id_t"].values.astype("int")
+
+    # TODO: Split the dataset into development and validation subsets
+    # dev_srl_df = srl_df
+
+    return score
+
+
 def load_truth_df(truth_path):
     """
     Load the training area truth catalogue.
@@ -164,7 +236,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    score = score_from_srl(args.s, args.t, args.f)
+    score = predict_size_class(args.s, args.t, args.f)
     print("Score was {}".format(score.value))
     print("Number of detections {}".format(score.n_det))
     print("Number of matches {}".format(score.n_match))
