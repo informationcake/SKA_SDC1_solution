@@ -145,18 +145,51 @@ def do_sourcefinding(imagename):
     
     
     
+    
+    
+# make image cube for pybdsf spectral index mode
+def make_image_cube():
+    images_560 = glob.glob('560*.fits')
+    images_1400 = glob.glob('1400*.fits')
+    cube = np.zeros((2,f560[0].data.shape[0],f560[0].data.shape[1]))
+    for file560, file1400 in zip(images_560, images_1400):
+        f560 = fits.open('file560')
+        f1400 = fits.open('file1400')
+        cube[0,:,:] = f560[0].data[:,:]
+        cube[1,:,:] = f1400[0].data[:,:]
+        
+    hdu_new = fits.PrimaryHDU(data=cube,header=f560[0].header)
+    hdu_new.write_to('cube_1.fits')
+    return hdu_new
 
+
+
+
+
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+    
+    
+    
+    
     
 if __name__ == '__main__':
     
     # load image to get properties
-    input_image = '560mhz8hours.fits'
+    input_image_560 = '560mhz8hours.fits'
+    input_image_1400 = '1400mhz8hours.fits'
     
-    # divide x and y axes by split_into. This gives split_into**2 output images
-    split_into = 4
+    # divide x and y axes by split_into. This gives split_into**2 output images.
+    # a 3 by 3 grid allows pybdsf to run efficiently (fails on the 4GB 32k x 32k pixel image) whilst avoiding cutting through the centre of the image
+    split_into = 3
     
     # cut up images and save to disk
-    do_image_chopping(input_image, split_into)
+    do_image_chopping(input_image_560, split_into)
+    do_image_chopping(input_image_1400, split_into)
+    
+    # make image cube of the frequencies so pybdsf can use spectral index mode
+    
+    make_image_cube()
     
     # do source finding. Multithread this part?
     
