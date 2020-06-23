@@ -146,7 +146,7 @@ def make_image_cube():
                                     
                                     
 # adding @profile enables RAM profiling. Run as normal and it will print out RAM stats at the end. Or run as 'mprof run sourcefind.py'. Then 'mprof plot' to get RAM vs time plot.
-def do_sourcefinding(imagename):
+def do_sourcefinding(imagename, si=True):
     # get beam info manually. SKA image seems to cause PyBDSF issues finding this info.
     f = fits.open(imagename)
     beam_maj = f[0].header['BMAJ']
@@ -155,10 +155,18 @@ def do_sourcefinding(imagename):
     beam_pa = 0
     f.close()
     # using some sensible and thorough hyper-parameters. PSF_vary and adaptive_rms_box is more computationally intensive, but needed.
-    img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
-        atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
-        output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
-        blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30)
+	if si==True:
+		img = bdsf.process_image(imagename, adaptive_rms_box=True, spectralindex_do=True, advanced_opts=True,\
+			atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
+			output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
+			blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
+			frequency_sp=[560e6,1400e6], collapse_mode='single') # use 560 Mhz image as ch0 (
+									
+    if si==False:                                
+		img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
+			atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
+			output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
+			blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30)
     return img
 
 
