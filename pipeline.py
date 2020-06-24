@@ -9,6 +9,7 @@ import multiprocessing
 import itertools
 import bdsf
 import glob
+import pickle
 
 from matplotlib.pyplot import cm
 from astropy.io import fits
@@ -17,9 +18,32 @@ from astropy.wcs import WCS
 from memory_profiler import profile
 
 # list of functions
+# load/save pickle objects
 # save_cutout
 # do_image_chopping
+# make_image_cubes
 # do_sourcefinding
+
+
+
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+
+
+
+
+
+#Loading/saving python data objects
+def save_obj(obj, name ):
+    with open(name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(name ):
+    with open(name + '.pkl', 'rb') as f:
+        return pickle.load(f)
+
+
+
 
 
 
@@ -37,7 +61,8 @@ def save_cutout(input_image, position, size, part):
     wcs = WCS(hdu.header)
     
     # Make the cutout, including the WCS. Keep only 2D, drop additional axis with .celestial. SKA image has 4D so hdu.data[0,0,:,:].
-    cutout = Cutout2D(hdu.data[0,0,:,:], position=position, size=size, wcs=wcs.celestial, mode='partial', fill_value=np.nan)
+    # mode has to be 'trim', as the 'partial' mode includes a buffer beyond the edge of the images. PyBDSF spectral index mode cannot handle NaNs so image cut has to be exact.
+    cutout = Cutout2D(hdu.data[0,0,:,:], position=position, size=size, wcs=wcs.celestial, mode='trim', fill_value=np.nan)
 
     # Put the cutout image in the FITS HDU
     hdu.data = cutout.data
@@ -113,31 +138,35 @@ def do_image_chopping(input_image, split_into):
 
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
 
+    
+    
+    
 
-    
-    
-    
-    
     
 # make image cube for pybdsf spectral index mode
-def make_image_cube():
-    images_560 = glob.glob('560*.fits')
-    images_1400 = glob.glob('1400*.fits')
-    # make cube, assume size of images is exactly the same.
-    cube = np.zeros((2,f560[0].data.shape[0],f560[0].data.shape[1]))
-    for file560, file1400, i in zip(images_560, images_1400, range(len(images_560)):
-        f560 = fits.open('file560')
-        f1400 = fits.open('file1400')
+def make_image_cubes():
+    # get cutout file names, must be in same order so they are matched correctly
+    images_560 = sorted(glob.glob('560*.fits'))
+    images_1400 = sorted(glob.glob('1400*.fits'))
+    # loop over image cutouts to make cube for each of them
+    for file560, file1400, i in zip(images_560, images_1400, range(len(images_560))):
+        print(' Making cube {0} of {1}'.format(i, len(images_560)-1))
+        f560 = fits.open(file560)
+        f1400 = fits.open(file1400)
+        # make cube from the input files along freq axis
+        cube = np.zeros((2,f560[0].data.shape[0],f560[0].data.shape[1]))
         cube[0,:,:] = f560[0].data[:,:] # add 560 Mhz data
         cube[1,:,:] = f1400[0].data[:,:] # add 1400 Mhz data
-    hdu_new = fits.PrimaryHDU(data=cube,header=f560[0].header)
-    hdu_new.write_to('cube_'+str(i)+'.fits')
-
-
-
-
-
-                                    
+        hdu_new = fits.PrimaryHDU(data=cube, header=f560[0].header)
+        # update frequency info in the header. It puts 560MHz as ch0, but incorrectly assigns the interval to the next freq channel
+        hdu_new.header.set('CDELT3', 840000000) # 1400 MHz - 560 MHz = 840 MHz.
+        hdu_new.writeto('cube_'+str(i)+'.fits')
+    
+    
+    
+    
+    
+    
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
                                     
                                     
@@ -146,7 +175,7 @@ def make_image_cube():
                                     
                                     
 # adding @profile enables RAM profiling. Run as normal and it will print out RAM stats at the end. Or run as 'mprof run sourcefind.py'. Then 'mprof plot' to get RAM vs time plot.
-def do_sourcefinding(imagename):
+def do_sourcefinding(imagename, si=True):
     # get beam info manually. SKA image seems to cause PyBDSF issues finding this info.
     f = fits.open(imagename)
     beam_maj = f[0].header['BMAJ']
@@ -155,11 +184,23 @@ def do_sourcefinding(imagename):
     beam_pa = 0
     f.close()
     # using some sensible and thorough hyper-parameters. PSF_vary and adaptive_rms_box is more computationally intensive, but needed.
-    img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
-        atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
-        output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
-        blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30)
-    return img
+    if si==True:
+        img = bdsf.process_image(imagename, adaptive_rms_box=True, spectralindex_do=True, advanced_opts=True,\
+            atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
+            output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
+            blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
+            collapse_mode='single') # use 560 Mhz image as ch0
+        # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
+        save_obj(img, 'pybdsf_processimage_'+imagename[:-5])
+									
+    if si==False:                                
+        img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
+            atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
+            output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
+            blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30)
+        # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
+        save_obj(img, 'pybdsf_processimage_noSI_'+imagename[:-5])
+
 
 
 
@@ -174,7 +215,6 @@ def do_sourcefinding(imagename):
     
 
 if __name__ == '__main__':
-    
     # divide x and y axes by split_into. This gives split_into**2 output images.
     # a 3 by 3 grid allows pybdsf to run efficiently (fails on the 4GB 32k x 32k pixel image) whilst avoiding cutting through the centre of the image
     split_into = 3
@@ -188,11 +228,11 @@ if __name__ == '__main__':
     do_image_chopping(input_image_1400, split_into)
     
     # make image cube of the frequencies per cutout and save to disk, so pybdsf can use spectral index mode
-    make_image_cube()
+    make_image_cubes()
     
     # do source finding. Multithread this part? crashes. for loop is safer.             
     # sourcefinding on cube to get spectral indcies (si=True)
-    imagenames = glob.glob('cube_*.fits')
+    imagenames = sorted(glob.glob('cube_*.fits'))
     for image in imagenames:
         do_sourcefinding(image, si=True)
                                     
