@@ -182,7 +182,7 @@ def do_sourcefinding(imagename, si=True):
     beam_pa = 0
     f.close()
     # using some sensible and thorough hyper-parameters. PSF_vary and adaptive_rms_box is more computationally intensive, but needed.
-	if si==True:
+    if si==True:
         img = bdsf.process_image(imagename, adaptive_rms_box=True, spectralindex_do=True, advanced_opts=True,\
             atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
             output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
