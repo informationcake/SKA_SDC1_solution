@@ -231,7 +231,7 @@ if __name__ == '__main__':
     
     # do source finding. Multithread this part? crashes. for loop is safer.             
     # sourcefinding on cube to get spectral indcies (si=True)
-    imagenames = glob.glob('cube_*.fits')
+    imagenames = sorted(glob.glob('cube_*.fits'))
     for image in imagenames:
         do_sourcefinding(image, si=True)
                                     
