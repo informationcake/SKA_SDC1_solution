@@ -60,7 +60,8 @@ def save_cutout(input_image, position, size, part):
     wcs = WCS(hdu.header)
     
     # Make the cutout, including the WCS. Keep only 2D, drop additional axis with .celestial. SKA image has 4D so hdu.data[0,0,:,:].
-    cutout = Cutout2D(hdu.data[0,0,:,:], position=position, size=size, wcs=wcs.celestial, mode='partial', fill_value=np.nan)
+    # mode has to be 'trim', as the 'partial' mode includes a buffer beyond the edge of the images. PyBDSF spectral index mode cannot handle NaNs so image cut has to be exact.
+    cutout = Cutout2D(hdu.data[0,0,:,:], position=position, size=size, wcs=wcs.celestial, mode='trim', fill_value=np.nan)
 
     # Put the cutout image in the FITS HDU
     hdu.data = cutout.data
@@ -143,20 +144,21 @@ def do_image_chopping(input_image, split_into):
     
 # make image cube for pybdsf spectral index mode
 def make_image_cubes():
-    images_560 = glob.glob('560*.fits')
-    images_1400 = glob.glob('1400*.fits')
+    # get cutout file names, must be in same order so they are matched correctly
+    images_560 = sorted(glob.glob('560*.fits'))
+    images_1400 = sorted(glob.glob('1400*.fits'))
     # loop over image cutouts to make cube for each of them
     for file560, file1400, i in zip(images_560, images_1400, range(len(images_560))):
         print(' Making cube {0} of {1}'.format(i, len(images_560)-1))
         f560 = fits.open(file560)
         f1400 = fits.open(file1400)
-        # make cube, assume size of images is exactly the same.
+        # make cube from the input files along freq axis
         cube = np.zeros((2,f560[0].data.shape[0],f560[0].data.shape[1]))
         cube[0,:,:] = f560[0].data[:,:] # add 560 Mhz data
         cube[1,:,:] = f1400[0].data[:,:] # add 1400 Mhz data
         hdu_new = fits.PrimaryHDU(data=cube, header=f560[0].header)
         # update frequency info in the header. It puts 560MHz as ch0, but incorrectly assigns the interval to the next freq channel
-        hdu_new.header.set('CDELT3', 840000000)
+        hdu_new.header.set('CDELT3', 840000000) # 1400 MHz - 560 MHz = 840 MHz.
         hdu_new.writeto('cube_'+str(i)+'.fits')
     
     
