@@ -148,7 +148,7 @@ def make_image_cubes():
 	images_1400 = glob.glob('1400*.fits')
 	# loop over image cutouts to make cube for each of them
 	for file560, file1400, i in zip(images_560, images_1400, range(len(images_560))):
-		print(' Making cube {0} of {1}'.format(i, len(images_560)))
+		print(' Making cube {0} of {1}'.format(i, len(images_560)-1))
 		f560 = fits.open(file560)
 		f1400 = fits.open(file1400)
 		# make cube, assume size of images is exactly the same.
@@ -213,7 +213,6 @@ def do_sourcefinding(imagename, si=True):
     
 
 if __name__ == '__main__':
-    '''
     # divide x and y axes by split_into. This gives split_into**2 output images.
     # a 3 by 3 grid allows pybdsf to run efficiently (fails on the 4GB 32k x 32k pixel image) whilst avoiding cutting through the centre of the image
     split_into = 3
@@ -228,7 +227,7 @@ if __name__ == '__main__':
     
     # make image cube of the frequencies per cutout and save to disk, so pybdsf can use spectral index mode
     make_image_cube()
-    '''
+    
     # do source finding. Multithread this part? crashes. for loop is safer.             
     # sourcefinding on cube to get spectral indcies (si=True)
     imagenames = glob.glob('cube_*.fits')
