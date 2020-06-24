@@ -9,6 +9,7 @@ import multiprocessing
 import itertools
 import bdsf
 import glob
+import pickle
 
 from matplotlib.pyplot import cm
 from astropy.io import fits
