@@ -17,9 +17,32 @@ from astropy.wcs import WCS
 from memory_profiler import profile
 
 # list of functions
+# load/save pickle objects
 # save_cutout
 # do_image_chopping
+# make_image_cubes
 # do_sourcefinding
+
+
+
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+
+
+
+
+
+#Loading/saving python data objects
+def save_obj(obj, name ):
+    with open(name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(name ):
+    with open(name + '.pkl', 'rb') as f:
+        return pickle.load(f)
+
+
+
 
 
 
@@ -165,12 +188,16 @@ def do_sourcefinding(imagename, si=True):
 			output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
 			blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
 			collapse_mode='single') # use 560 Mhz image as ch0
+		# save the img object as a pickle file, so we can do interactive checks after pybdsf has run
+		save_obj(img, 'pybdsf_processimage_cube'+str(i))
 									
     if si==False:                                
 		img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
 			atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
 			output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
 			blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30)
+		# save the img object as a pickle file, so we can do interactive checks after pybdsf has run
+		save_obj(img, 'pybdsf_processimage_noSI_cube'+str(i))
     return img
 
 
