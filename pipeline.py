@@ -120,18 +120,22 @@ def do_image_chopping(input_image, split_into):
     
     
 # make image cube for pybdsf spectral index mode
-def make_image_cube():
-    images_560 = glob.glob('560*.fits')
-    images_1400 = glob.glob('1400*.fits')
-    # make cube, assume size of images is exactly the same.
-    cube = np.zeros((2,f560[0].data.shape[0],f560[0].data.shape[1]))
-    for file560, file1400, i in zip(images_560, images_1400, range(len(images_560)):
-        f560 = fits.open('file560')
-        f1400 = fits.open('file1400')
-        cube[0,:,:] = f560[0].data[:,:] # add 560 Mhz data
-        cube[1,:,:] = f1400[0].data[:,:] # add 1400 Mhz data
-    hdu_new = fits.PrimaryHDU(data=cube,header=f560[0].header)
-    hdu_new.write_to('cube_'+str(i)+'.fits')
+def make_image_cubes():
+	images_560 = glob.glob('560*.fits')
+	images_1400 = glob.glob('1400*.fits')
+	# loop over image cutouts to make cube for each of them
+	for file560, file1400, i in zip(images_560, images_1400, range(len(images_560))):
+		print(' Making cube {0} of {1}'.format(i, len(images_560)))
+		f560 = fits.open(file560)
+		f1400 = fits.open(file1400)
+		# make cube, assume size of images is exactly the same.
+		cube = np.zeros((2,f560[0].data.shape[0],f560[0].data.shape[1]))
+		cube[0,:,:] = f560[0].data[:,:] # add 560 Mhz data
+		cube[1,:,:] = f1400[0].data[:,:] # add 1400 Mhz data
+		hdu_new = fits.PrimaryHDU(data=cube, header=f560[0].header)
+		# update frequency info in the header. It puts 560MHz as ch0, but incorrectly assigns the interval to the next freq channel
+		hdu_new.header.set('CDELT3', 840000000)
+		hdu_new.writeto('cube_'+str(i)+'.fits')
 
 
 
@@ -149,8 +153,8 @@ def make_image_cube():
 def do_sourcefinding(imagename, si=True):
     # get beam info manually. SKA image seems to cause PyBDSF issues finding this info.
     f = fits.open(imagename)
-    beam_maj = f[0].header['BMAJ']
-    beam_min = f[0].header['BMIN']
+	beam_maj = f[0].header['BMAJ']
+	beam_min = f[0].header['BMIN']
     #beam_pa = f[0].header['BPA'] # not in SKA fits header, but we know it's circular
     beam_pa = 0
     f.close()
@@ -160,7 +164,7 @@ def do_sourcefinding(imagename, si=True):
 			atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
 			output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
 			blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
-			frequency_sp=[560e6,1400e6], collapse_mode='single') # use 560 Mhz image as ch0 (
+			collapse_mode='single') # use 560 Mhz image as ch0
 									
     if si==False:                                
 		img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
