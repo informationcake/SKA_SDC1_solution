@@ -176,8 +176,8 @@ def make_image_cubes():
 def do_sourcefinding(imagename, si=True):
     # get beam info manually. SKA image seems to cause PyBDSF issues finding this info.
     f = fits.open(imagename)
-	beam_maj = f[0].header['BMAJ']
-	beam_min = f[0].header['BMIN']
+    beam_maj = f[0].header['BMAJ']
+    beam_min = f[0].header['BMIN']
     #beam_pa = f[0].header['BPA'] # not in SKA fits header, but we know it's circular
     beam_pa = 0
     f.close()
@@ -213,7 +213,7 @@ def do_sourcefinding(imagename, si=True):
     
 
 if __name__ == '__main__':
-    
+    '''
     # divide x and y axes by split_into. This gives split_into**2 output images.
     # a 3 by 3 grid allows pybdsf to run efficiently (fails on the 4GB 32k x 32k pixel image) whilst avoiding cutting through the centre of the image
     split_into = 3
@@ -228,7 +228,7 @@ if __name__ == '__main__':
     
     # make image cube of the frequencies per cutout and save to disk, so pybdsf can use spectral index mode
     make_image_cube()
-    
+    '''
     # do source finding. Multithread this part? crashes. for loop is safer.             
     # sourcefinding on cube to get spectral indcies (si=True)
     imagenames = glob.glob('cube_*.fits')
