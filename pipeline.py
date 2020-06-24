@@ -183,22 +183,22 @@ def do_sourcefinding(imagename, si=True):
     f.close()
     # using some sensible and thorough hyper-parameters. PSF_vary and adaptive_rms_box is more computationally intensive, but needed.
 	if si==True:
-		img = bdsf.process_image(imagename, adaptive_rms_box=True, spectralindex_do=True, advanced_opts=True,\
-			atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
-			output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
-			blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
-			collapse_mode='single') # use 560 Mhz image as ch0
-		# save the img object as a pickle file, so we can do interactive checks after pybdsf has run
-		save_obj(img, 'pybdsf_processimage_cube'+str(i))
+        img = bdsf.process_image(imagename, adaptive_rms_box=True, spectralindex_do=True, advanced_opts=True,\
+            atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
+            output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
+            blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
+            collapse_mode='single') # use 560 Mhz image as ch0
+        # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
+        save_obj(img, 'pybdsf_processimage_cube'+str(i))
 									
     if si==False:                                
-		img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
-			atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
-			output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
-			blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30)
-		# save the img object as a pickle file, so we can do interactive checks after pybdsf has run
-		save_obj(img, 'pybdsf_processimage_noSI_cube'+str(i))
-    return img
+        img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
+            atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
+            output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
+            blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30)
+        # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
+        save_obj(img, 'pybdsf_processimage_noSI_cube'+str(i))
+
 
 
 
