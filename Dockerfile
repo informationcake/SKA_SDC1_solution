@@ -61,16 +61,12 @@ RUN cd / \
     && tar xvf boost_1_63_0.tar.bz2 \
     && cd boost_1_63_0 \
     && ./bootstrap.sh \
-           --with-python=/usr/bin/python3.6 \
-           --with-libraries=python,date_time,filesystem,system,program_options,test \
+    --with-python=/usr/bin/python3.6 \
+    --with-libraries=python,date_time,filesystem,system,program_options,test \
     && ./b2 install \
     && cd / && rm -r boost_1_63_0*
 
 # Install pyBDSF
-RUN git clone https://github.com/informationcake/PyBDSF.git \
-    && cd PyBDSF \
-    && python3.6 -m pip install . \
-    && cd .. \
-    && rm -rf PyBDSF
+RUN python3.6 -m pip install bdsf
 
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}/usr/local/lib
