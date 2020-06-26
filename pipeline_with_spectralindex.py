@@ -49,6 +49,7 @@ def load_obj(name ):
 
 # remove extra axis and update header and wcs to be consistent
 def make_2d_fits(fits_image_name):
+    print(' Making 2d fits files...')
     hdu = fits.open(fits_image_name)[0]
     hdu.data = hdu.data[0,0,:,:]
     hdu.header.update(WCS(hdu.header).celestial.to_header())
@@ -69,11 +70,12 @@ def make_2d_fits(fits_image_name):
 
 
 def crop_560MHz_to1400MHz(fits_image_name):
+    print(' Cropping image...')
     # Adapted from https://docs.astropy.org/en/stable/nddata/utils.html
     hdu = fits.open(fits_image_name)[0]
     wcs = WCS(hdu.header)
     # cutout to 1400 MHz area. hard coded, since 1400 MHz beam is 2.5 times smaller than 560 MHz beam.
-    cutout = Cutout2D(hdu560.data, position=(32768/2,32768/2), size=(32768/2.5,32768/2.5), mode='trim', wcs=wcs, copy=True)
+    cutout = Cutout2D(hdu.data, position=(32768/2,32768/2), size=(32768/2.5,32768/2.5), mode='trim', wcs=wcs, copy=True)
     hdu.data = cutout.data # Put the cutout image in the FITS HDU
     hdu.header.update(cutout.wcs.to_header()) # Update the FITS header with the cutout WCS
     hdu.writeto(fits_image_name[:-5]+'_CropTo1400mhzFOV.fits', overwrite=True) # Write the cutout to a new FITS file
@@ -85,6 +87,7 @@ def crop_560MHz_to1400MHz(fits_image_name):
 
 
 def regrid_montage(fits_image_name):
+    print(' Regredding image...')
     # get header of 560 MHz image to match to
     montage.mGetHdr(fits_image_name, 'hdu560_tmp.hdr')
     # regrid 1400 MHz cropped image (32k pixels) to 560 MHz image (13k pixels). This convolves and regrids to match 560 MHz image.
@@ -99,6 +102,7 @@ def regrid_montage(fits_image_name):
 
 # make image cube for pybdsf spectral index mode
 def make_image_cube(image1, image2):
+    print(' Making image cube...')
     # make cube from the input files along freq axis
     cube = np.zeros((2,f560.data.shape[0],f560.data.shape[1]))
     cube[0,:,:] = f560.data[:,:] # add 560 Mhz data
