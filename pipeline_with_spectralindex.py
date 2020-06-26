@@ -108,8 +108,11 @@ def make_image_cube(hdu560, hdu1400):
     cube[0,:,:] = hdu560.data[:,:] # add 560 Mhz data
     cube[1,:,:] = hdu1400.data[:,:] # add 1400 Mhz data
     hdu_new = fits.PrimaryHDU(data=cube, header=hdu560.header)
-    # update frequency info in the header. It puts 560MHz as ch0, but incorrectly assigns the interval to the next freq channel
+    # update frequency info in the header
+    hdu_new.header.set('CRPIX3', 1) # Need ref pix=1
     hdu_new.header.set('CDELT3', 840000000) # 1400 MHz - 560 MHz = 840 MHz.
+    hdu_new.header.set('CRVAL3', 560000000) # ch0 freq
+    hdu_new.header.set('CTYPE3', 'FREQ    ') # 3rd axis is freq
     hdu_new.writeto('cube_560_1400.fits')
             
 
