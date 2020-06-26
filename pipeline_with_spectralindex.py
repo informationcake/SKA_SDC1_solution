@@ -86,12 +86,12 @@ def crop_560MHz_to1400MHz(fits_image_name):
     
 
 
-def regrid_montage(fits_image_name):
+def regrid_montage(fits_image_input, fits_image_ref):
     print(' Regredding image...')
     # get header of 560 MHz image to match to
-    montage.mGetHdr(fits_image_name, 'hdu560_tmp.hdr')
+    montage.mGetHdr(fits_image_ref, 'hdu560_tmp.hdr')
     # regrid 1400 MHz cropped image (32k pixels) to 560 MHz image (13k pixels). This convolves and regrids to match 560 MHz image.
-    montage.reproject(in_images=fits_image_name, out_images=fits_image_name[:-5]+'_regrid.fits', header='hdu560_tmp.hdr', exact_size=True)
+    montage.reproject(in_images=fits_image_input, out_images=fits_image_input[:-5]+'_regrid.fits', header='hdu560_tmp.hdr', exact_size=True)
     os.remove('hdu560_tmp.hdr') # get rid of header text file saved to disk
     
 
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     crop_560MHz_to1400MHz('560mhz8hours_2d.fits')
     
     # Convolve and regrid 1400 MHz image to match that of the 560 MHz image. Uses Montage.
-    regrid_montage('1400mhz8hours_2d.fits')
+    regrid_montage('1400mhz8hours_2d.fits', '560mhz8hours_2d_CropTo1400mhzFOV.fits')
     
     # load images now at same resolution, same sky area, same pixel size
     hdu560 = fits.open('560mhz8hours_2d_CropTo1400mhzFOV.fits')[0]
