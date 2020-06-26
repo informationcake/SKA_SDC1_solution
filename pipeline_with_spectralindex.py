@@ -153,11 +153,11 @@ if __name__ == '__main__':
     # load images now at same resolution, same sky area, same pixel size
     hdu560 = fits.open('560mhz8hours_2d_CropTo1400mhzFOV_regrid.fits')[0]
     hdu1400 = fits.open('1400mhz8hours_2d.fits')[0]
-    # make image cube
+    # make image cube 'cube_560_1400.fits'
     make_image_cube(hdu560, hdu1400)
     
     # do source finding with spectral index mode on the image cube
-    do_sourcefinding(image)
+    do_sourcefinding('cube_560_1400.fits')
     
     
     
