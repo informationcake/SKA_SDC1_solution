@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import multiprocessing
 import itertools
 import bdsf
-import glob
 import pickle
 import aplpy
 
@@ -18,15 +17,13 @@ from astropy.io import fits
 from astropy.nddata.utils import Cutout2D
 from astropy.wcs import WCS
 import montage_wrapper as montage
-#from memory_profiler import profile
-
-
 
 # list of functions
 # load/save pickle objects
-# save_cutout
-# do_image_chopping
-# make_image_cubes
+# make_2d_fits
+# crop_560MHz_to1400MHz
+# regrid_montage
+# make_image_cube
 # do_sourcefinding
 
 
