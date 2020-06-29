@@ -166,4 +166,5 @@ SRL_NUM_COLS = [
     "Isl_mean",
     "Resid_Isl_rms",
     "Resid_Isl_mean",
+    "n_gaussians",
 ]
