@@ -16,6 +16,7 @@ from astropy.io import fits
 #from astropy.nddata import Cutout2D
 from astropy.nddata.utils import Cutout2D
 from astropy.wcs import WCS
+from astropy.convolution import convolve, Gaussian2DKernel
 import montage_wrapper as montage
 
 # list of functions
@@ -86,12 +87,30 @@ def crop_560MHz_to1400MHz(fits_image_name):
     
 
 
-def regrid_montage(fits_image_input, fits_image_ref):
+def convolve_regrid(fits_image_input, fits_image_ref): 
+    # first need to convolve to match low freq resolution
+    print(' Convolving image...')
+    hdu1400 = fits.open(fits_image_input)[0]
+    hdu560 = fits.open(fits_image_ref)[0]
+    # get target resolution
+    cdelt2_1400 = hdu1400.header['CDELT2']
+    # current resolution
+    cdelt2_560 = hdu560.header['CDELT2']
+    # convolve size
+    sigma = cdelt2_560/cdelt2_1400
+    # By default, the Gaussian kernel will go to 4 sigma in each direction. x_size=4
+    psf = Gaussian2DKernel(sigma)
+    hdu1400_data_convolved = convolve(hdu1400.data, psf)
+    hdu1400.data = hdu1400_data_convolved
+    # save convolved image
+    hdu1400.writeto(fits_image_input[:-5]+'_convolved.fits', overwrite=True)
+    
+    # use montage to regrid image so they both have same pixel dimensions in prep for making cube
     print(' Regredding image...')
     # get header of 560 MHz image to match to
     montage.mGetHdr(fits_image_ref, 'hdu560_tmp.hdr')
-    # regrid 1400 MHz cropped image (32k pixels) to 560 MHz image (13k pixels). This convolves and regrids to match 560 MHz image.
-    montage.reproject(in_images=fits_image_input, out_images=fits_image_input[:-5]+'_regrid.fits', header='hdu560_tmp.hdr', exact_size=True)
+    # regrid 1400 MHz cropped image (32k pixels) to 560 MHz image (13k pixels). This regrids to match 560 MHz image.
+    montage.reproject(in_images=fits_image_input[:-5]+'_convolved.fits', out_images=fits_image_input[:-5]+'_convolved_regrid.fits', header='hdu560_tmp.hdr', exact_size=True)
     os.remove('hdu560_tmp.hdr') # get rid of header text file saved to disk
     
 
@@ -154,11 +173,11 @@ if __name__ == '__main__':
     crop_560MHz_to1400MHz('560mhz8hours_2d.fits')
     
     # Convolve and regrid 1400 MHz image to match that of the 560 MHz image. Uses Montage.
-    regrid_montage('1400mhz8hours_2d.fits', '560mhz8hours_2d_CropTo1400mhzFOV.fits')
+    convolve_regrid('1400mhz8hours_2d.fits', '560mhz8hours_2d_CropTo1400mhzFOV.fits')
     
     # load images now at same resolution, same sky area, same pixel size
     hdu560 = fits.open('560mhz8hours_2d_CropTo1400mhzFOV.fits')[0]
-    hdu1400 = fits.open('1400mhz8hours_2d_regrid.fits')[0]
+    hdu1400 = fits.open('1400mhz8hours_2d_convolved_regrid.fits')[0]
     # make image cube 'cube_560_1400.fits'
     make_image_cube(hdu560, hdu1400)
     
