@@ -98,9 +98,9 @@ def convolve_regrid(fits_image_input, fits_image_ref):
     cdelt2_560 = hdu560.header['CDELT2']
     # convolve size
     sigma = cdelt2_560/cdelt2_1400
-    # By default, the Gaussian kernel will go to 4 sigma in each direction. x_size=4
-    psf = Gaussian2DKernel(sigma)
-    hdu1400_data_convolved = convolve(hdu1400.data, psf)
+    # By default, the Gaussian kernel will go to 4 sigma in each direction. x_size=8
+    psf = Gaussian2DKernel(sigma, x_size=16, y_size=16, mode='oversample', factor=10)
+    hdu1400_data_convolved = convolve(hdu1400.data, psf, boundary='extend')
     hdu1400.data = hdu1400_data_convolved
     # save convolved image
     hdu1400.writeto(fits_image_input[:-5]+'_convolved.fits', overwrite=True)
@@ -166,11 +166,11 @@ def do_sourcefinding(imagename):
 if __name__ == '__main__':
 
     # remove extra axis and update header and wcs to be consistent
-    make_2d_fits('560mhz8hours.fits')
-    make_2d_fits('1400mhz8hours.fits')
+    #make_2d_fits('560mhz8hours.fits')
+    #make_2d_fits('1400mhz8hours.fits')
     
     # crop 560 MHz image to size of 1400 MHz image
-    crop_560MHz_to1400MHz('560mhz8hours_2d.fits')
+    #crop_560MHz_to1400MHz('560mhz8hours_2d.fits')
     
     # Convolve and regrid 1400 MHz image to match that of the 560 MHz image. Uses Montage.
     convolve_regrid('1400mhz8hours_2d.fits', '560mhz8hours_2d_CropTo1400mhzFOV.fits')
