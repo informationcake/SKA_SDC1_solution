@@ -145,8 +145,8 @@ def convolve_regrid(fits_image_input, fits_image_ref):
     cdelt2_560 = hdu560.header['CDELT2']
     # convolve size
     sigma = cdelt2_560/cdelt2_1400
-    # By default, the Gaussian kernel will go to 4 sigma in each direction. Set to go double this.
-    psf = Gaussian2DKernel(sigma/2, x_size=16, y_size=16, mode='oversample', factor=10)
+    # By default, the Gaussian kernel will go to 8 sigma in each direction. Set to go double this (odd number required).
+    psf = Gaussian2DKernel(sigma/2, x_size=15, y_size=15, mode='oversample', factor=10)
     hdu1400_data_convolved = convolve(hdu1400.data, psf, boundary='extend')
     hdu1400.data = hdu1400_data_convolved
     # save convolved image
