@@ -17,6 +17,8 @@ from astropy.io import fits
 from astropy.nddata.utils import Cutout2D
 from astropy.wcs import WCS
 from astropy.convolution import convolve, Gaussian2DKernel
+from astropy import units as u
+from astropy.coordinates import SkyCoord
 import montage_wrapper as montage
 
 # list of functions
@@ -63,7 +65,7 @@ def make_2d_fits(fits_image_name):
     hdu.header.remove('CRVAL4')
     hdu.header.remove('CDELT4')
     hdu.header.remove('CTYPE4')
-    hdu.writeto(fits_image_name[:-5]+'_2d.fits')
+    hdu.writeto(fits_image_name[:-5]+'_2d.fits', overwrite=True)
     
     
     
@@ -80,9 +82,9 @@ def do_primarybeam_correction(pbname, imagename):
     x_size = image.header['NAXIS1']
     x_pixel_deg = image.header['CDELT2'] # CDELT1 is negative, so take positive one
     size = (x_size*x_pixel_deg*u.degree, x_size*x_pixel_deg*u.degree) # angular size of cutout, using astropy coord. approx 32768*0.6 arcseconds.
-    position = (pb.header['CRVAL1']*u.degree, pb.header['CRVAL2']*u.degree) # RA and DEC of beam PB pointing
+    position = SkyCoord(pb.header['CRVAL1']*u.degree, pb.header['CRVAL2']*u.degree) # RA and DEC of beam PB pointing
     print(' Cutting out image FOV from primary beam image...')
-    cutout = Cutout2D(pb.data, position=position, size=size, mode='trim', wcs=wcs, copy=True)
+    cutout = Cutout2D(pb.data[0,0,:,:], position=position, size=size, mode='trim', wcs=wcs.celestial, copy=True)
     pb.data = cutout.data # Put the cutout image in the FITS HDU
     pb.header.update(cutout.wcs.to_header()) # Update the FITS header with the cutout WCS
     pb.writeto(pbname[:-5]+'_PBCOR.fits', overwrite=True) # Write the cutout to a new FITS file
@@ -110,13 +112,18 @@ def do_primarybeam_correction(pbname, imagename):
 
 
 
-def crop_560MHz_to1400MHz(fits_image_name):
+def crop_560MHz_to1400MHz(fits_image_name, ref_image_name):
     print(' Cropping image...')
     # Adapted from https://docs.astropy.org/en/stable/nddata/utils.html
+    ref_hdu = fits.open(ref_image_name)[0] # the 1400mhz image
     hdu = fits.open(fits_image_name)[0]
     wcs = WCS(hdu.header)
     # cutout to 1400 MHz area. hard coded, since 1400 MHz beam is 2.5 times smaller than 560 MHz beam.
-    cutout = Cutout2D(hdu.data, position=(32768/2,32768/2), size=(32768/2.5,32768/2.5), mode='trim', wcs=wcs, copy=True)
+    x_size = ref_hdu.header['NAXIS1']
+    x_pixel_deg = ref_hdu.header['CDELT2'] # CDELT1 is negative, so take positive one
+    size = (x_size*x_pixel_deg*u.degree, x_size*x_pixel_deg*u.degree) # angular size of cutout, using astropy coord. approx 32768*0.6 arcseconds.
+    position = SkyCoord(hdu.header['CRVAL1']*u.degree, hdu.header['CRVAL2']*u.degree) # RA and DEC of beam PB pointing
+    cutout = Cutout2D(hdu.data, position=position, size=size, mode='trim', wcs=wcs, copy=True)
     hdu.data = cutout.data # Put the cutout image in the FITS HDU
     hdu.header.update(cutout.wcs.to_header()) # Update the FITS header with the cutout WCS
     hdu.writeto(fits_image_name[:-5]+'_CropTo1400mhzFOV.fits', overwrite=True) # Write the cutout to a new FITS file
@@ -206,14 +213,14 @@ def do_sourcefinding(imagename):
 if __name__ == '__main__':
 
     # remove extra axis and update header and wcs to be consistent
-    #make_2d_fits('560mhz8hours.fits')
-    #make_2d_fits('1400mhz8hours.fits')
+    make_2d_fits('560mhz8hours.fits')
+    make_2d_fits('1400mhz8hours.fits')
     
-    do_primarybeam_correction('560mhz_primarybeam.fits', '560mhz8hours.fits')
-    do_primarybeam_correction('1400mhz_primarybeam.fits', '1400mhz8hours.fits')
+    do_primarybeam_correction('560mhz_primarybeam.fits', '560mhz8hours_2d.fits')
+    do_primarybeam_correction('1400mhz_primarybeam.fits', '1400mhz8hours_2d.fits')
     
     # crop 560 MHz image to size of 1400 MHz image
-    crop_560MHz_to1400MHz('560mhz8hours_2d_PBCOR.fits')
+    crop_560MHz_to1400MHz('560mhz8hours_2d_PBCOR.fits', '1400mhz8hours_2d_PBCOR.fits')
     
     # Convolve and regrid 1400 MHz image to match that of the 560 MHz image. Uses Montage.
     convolve_regrid('1400mhz8hours_2d_PBCOR.fits', '560mhz8hours_2d_PBCOR_CropTo1400mhzFOV.fits')
