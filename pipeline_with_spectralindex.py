@@ -202,7 +202,8 @@ def do_sourcefinding(imagename):
         blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
         collapse_mode='single', collapse_ch0=0, incl_chan=True, specind_snr=5.0, frequency_sp=[560e6, 1400e6]) # use 560 Mhz image as ch0
     # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
-    save_obj(img, 'pybdsf_processimage_'+imagename[:-5])
+    # turns out this doesn't work you have to run it inside an interactive python session
+    # save_obj(img, 'pybdsf_processimage_'+imagename[:-5])
                 
 
 
