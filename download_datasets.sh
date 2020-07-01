@@ -11,6 +11,6 @@ wget -O 1400mhz1000hours.fits https://owncloud.ia2.inaf.it/index.php/s/GsxoTyv1z
 wget -O 9200mhz1000hours.fits https://owncloud.ia2.inaf.it/index.php/s/nK8Pqf3XIaXFuKD/download
 
 # primary beams
-wget -O 560mhz8hours_primarybeam.fits https://owncloud.ia2.inaf.it/index.php/s/ZbaSDe7zGBYgxL1/download
-wget -O 1400mhz8hours_primarybeam.fits https://owncloud.ia2.inaf.it/index.php/s/tVGse9GaLBQmntc/download
-wget -O 9200mhz8hours_primarybeam.fits https://owncloud.ia2.inaf.it/index.php/s/HlEJNsN2Vd4RL9W/download
+wget -O 560mhz_primarybeam.fits https://owncloud.ia2.inaf.it/index.php/s/ZbaSDe7zGBYgxL1/download
+wget -O 1400mhz_primarybeam.fits https://owncloud.ia2.inaf.it/index.php/s/tVGse9GaLBQmntc/download
+wget -O 9200mhz_primarybeam.fits https://owncloud.ia2.inaf.it/index.php/s/HlEJNsN2Vd4RL9W/download
