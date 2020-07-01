@@ -74,7 +74,7 @@ def make_2d_fits(fits_image_name):
 
 
 def do_primarybeam_correction(pbname, imagename):
-    print(' Applying primary beam correction to image...')
+    print(' Preparing to apply the primary beam correction...')
     image = fits.open(imagename)[0]
     pb = fits.open(pbname)[0]
     wcs = WCS(pb.header)
@@ -90,7 +90,7 @@ def do_primarybeam_correction(pbname, imagename):
     pb.writeto(pbname[:-5]+'_PBCOR.fits', overwrite=True) # Write the cutout to a new FITS file
 
     # regrid PB image cutout to match pixel scale of the image FOV
-    print(' Regredding image...')
+    print(' Regridding image...')
     # get header of image to match PB to
     montage.mGetHdr(imagename, 'hdu_tmp.hdr')
     # regrid pb image (270 pixels) to size of ref image (32k pixels)
