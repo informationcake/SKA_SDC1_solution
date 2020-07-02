@@ -21,12 +21,12 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 import montage_wrapper as montage
 
-# list of functions
+# list of functions:
 # load/save pickle objects
 # make_2d_fits
 # do_primarybeam_correction
 # crop_560MHz_to1400MHz
-# regrid_montage
+# convolve_regrid
 # make_image_cube
 # do_sourcefinding
 
