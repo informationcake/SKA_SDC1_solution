@@ -167,7 +167,7 @@ def convolve_regrid(fits_image_input, fits_image_ref):
 
 
 # make image cube for pybdsf spectral index mode
-def make_image_cube(hdu560, hdu1400):
+def make_image_cube(hdu560, hdu1400, outfilename):
     print(' Making image cube...')
     # make cube from the input files along freq axis
     cube = np.zeros((2,hdu560.data.shape[0],hdu560.data.shape[1]))
@@ -179,7 +179,7 @@ def make_image_cube(hdu560, hdu1400):
     hdu_new.header.set('CDELT3', 840000000) # 1400 MHz - 560 MHz = 840 MHz.
     hdu_new.header.set('CRVAL3', 560000000) # ch0 freq
     hdu_new.header.set('CTYPE3', 'FREQ    ') # 3rd axis is freq
-    hdu_new.writeto('cube_560_1400.fits')
+    hdu_new.writeto(outfilename)
             
 
 
@@ -200,7 +200,7 @@ def do_sourcefinding(imagename):
         atrous_do=False, psf_vary_do=False, psf_snrcut=5.0, psf_snrcutstack=10.0,\
         output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
         blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
-        collapse_mode='single', collapse_ch0=0, incl_chan=True, specind_snr=5.0, frequency_sp=[560e6, 1400e6]) # use 560 Mhz image as ch0
+        collapse_mode='single', collapse_ch0=1, incl_chan=True, specind_snr=5.0, frequency_sp=[560e6, 1400e6]) # use 560 Mhz image as ch0
     # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
     # turns out this doesn't work you have to run it inside an interactive python session
     # save_obj(img, 'pybdsf_processimage_'+imagename[:-5])
@@ -209,8 +209,43 @@ def do_sourcefinding(imagename):
 
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
     
+    
 
-   
+def crop_training_area(imagename)
+    # crop area common to 560 and 1400 MHz images
+    # 1400: {"ra_min": -0.2688, "ra_max": 0.0, "dec_min": -29.9400, "dec_max": -29.7265}
+    # 560: {"ra_min": -0.6723, "ra_max": 0.0, "dec_min": -29.9400, "dec_max": -29.4061}
+    # 1400 MHz area is common to both
+    ra_min = -0.2688
+    ra_max = 0.0
+    dec_min = -29.9400
+    dec_max = -29.7265
+    
+    hdu = fits.open(imagename)[0]
+    wcs = WCS(hdu.header)
+    
+    #train_min = SkyCoord(ra=ra_min, dec=dec_min, frame="fk5", unit="deg")
+    #train_max = SkyCoord(ra=ra_max, dec=dec_max, frame="fk5", unit="deg")
+    #pixel_width = (abs(skycoord_to_pixel(train_max, wcs)[0] - skycoord_to_pixel(train_min, wcs)[0])* pad_factor)
+    #pixel_height = (abs(skycoord_to_pixel(train_max, wcs)[1] - skycoord_to_pixel(train_min, wcs)[1])* pad_factor)
+    
+    position = SkyCoord(ra=(ra_max + ra_min) / 2, dec=(dec_max + dec_min) / 2, frame="fk5", unit="deg") # RA and DEC of centre
+    # angular size of cutout, converting min/max training positions in RA and DEC to angular distance on sky
+    #size = ( (dec_max - dec_min)*u.degree, (ra_max*np.cos(dec_max) - ra_min*np.cos(dec_min))*u.degree ) # order is (ny, nx)
+    size = ( (dec_max - dec_min)*u.degree, (ra_max - ra_min)*u.degree ) # order is (ny, nx)
+    print(size)
+    
+    cutout = Cutout2D(hdu.data, position=position, size=size, mode='trim', wcs=wcs, copy=True)
+    hdu.data = cutout.data # Put the cutout image in the FITS HDU
+    hdu.header.update(cutout.wcs.to_header()) # Update the FITS header with the cutout WCS
+    hdu.writeto(imagename[:-5]+'_trainarea.fits', overwrite=True) # Write the cutout to a new FITS file
+                
+
+
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+    
+
 if __name__ == '__main__':
 
     # remove extra axis and update header and wcs to be consistent
@@ -226,14 +261,31 @@ if __name__ == '__main__':
     # Convolve and regrid 1400 MHz image to match that of the 560 MHz image. Uses Montage.
     convolve_regrid('1400mhz8hours_2d_PBCOR.fits', '560mhz8hours_2d_PBCOR_CropTo1400mhzFOV.fits')
     
+    
+    
+    ### Source finding on the training area common to 560 and 1400 MHz images ###
+    # Make cutouts of the training area common to both images
+    crop_training_area('560mhz8hours_2d_PBCOR_CropTo1400mhzFOV.fits')
+    crop_training_area('1400mhz8hours_2d_PBCOR_convolved_regrid.fits')
+    # load images now at same resolution, same sky area, same pixel size
+    hdu560 = fits.open('560mhz8hours_2d_PBCOR_CropTo1400mhzFOV_trainarea.fits')[0]
+    hdu1400 = fits.open('1400mhz8hours_2d_PBCOR_convolved_regrid_trainarea.fits')[0]
+    # make image cube 'cube_560_1400.fits'
+    make_image_cube(hdu560, hdu1400, 'cube_560_1400_train.fits')
+    # do source finding with spectral index mode on the image cube
+    do_sourcefinding('cube_560_1400_train.fits')
+    
+    
+    
+    ### Source finding on the whole image ###
     # load images now at same resolution, same sky area, same pixel size
     hdu560 = fits.open('560mhz8hours_2d_PBCOR_CropTo1400mhzFOV.fits')[0]
     hdu1400 = fits.open('1400mhz8hours_2d_PBCOR_convolved_regrid.fits')[0]
     # make image cube 'cube_560_1400.fits'
-    make_image_cube(hdu560, hdu1400)
-    
+    make_image_cube(hdu560, hdu1400, 'cube_560_1400.fits')
     # do source finding with spectral index mode on the image cube
     do_sourcefinding('cube_560_1400.fits')
+    
     
     
     
