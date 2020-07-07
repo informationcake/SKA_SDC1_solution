@@ -7,6 +7,8 @@ from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
 
+from ska.sdc1.utils.image_utils import save_subimage
+
 # Training area limits (RA, Dec)
 TRAIN_LIM = {
     9200: {
@@ -68,47 +70,6 @@ def crop_to_training_area(image_path, out_path, freq, pad_factor=1.0):
         skycoord_to_pixel(train_centre, wcs),
         (pixel_height, pixel_width),
     )
-
-
-def save_subimage(image_path, out_path, position, size):
-    """
-    Write a sub-section of an image to a new FITS file.
-
-    Adapted from https://docs.astropy.org/en/stable/nddata/utils.html
-
-    Args:
-        image_path (`str`): Path to input image
-        out_path (`str`): Path to write sub-image to
-        position (`tuple`): Pixel position of sub-image centre (x, y)
-        size (`tuple`): Size in pixels of sub-image (ny, nx)
-    """
-
-    # TODO: Abstract common code with pipeline.save_cutout to avoid duplication.
-
-    # Load the image and the WCS
-    hdu = fits.open(image_path)[0]
-    wcs = WCS(hdu.header)
-
-    # Make the cutout, including the WCS. Keep only 2D, drop additional axis with
-    # .celestial. SKA image has 4D so hdu.data[0,0,:,:].
-    cutout = Cutout2D(
-        hdu.data[0, 0, :, :],
-        position=position,
-        size=size,
-        wcs=wcs.celestial,
-        mode="partial",
-        fill_value=np.nan,
-    )
-
-    # Put the cutout image in the FITS HDU
-    hdu.data = cutout.data
-
-    # Update the FITS header with the cutout WCS
-    hdu.header.update(cutout.wcs.to_header())
-
-    # Write the cutout to a new FITS file.
-    hdu.writeto(out_path, overwrite=True)
-    return cutout
 
 
 if __name__ == "__main__":

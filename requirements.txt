@@ -1,0 +1,20 @@
+# PyBDSF also required, following installation of environment dependencies
+
+# Solution requirements
+setuptools
+Cython
+wheel
+aplpy
+astropy
+numpy
+matplotlib
+scipy
+wcsaxes
+scikit-learn
+umap-learn
+datashader
+memory_profiler
+montage-wrapper
+
+# Test requirements
+pytest
