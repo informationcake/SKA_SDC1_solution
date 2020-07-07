@@ -1,0 +1,11 @@
+# Byte-compiled/optimized/DLL files
+__pycache__/
+*.py[cod]
+
+data/
+venv/
+Montage/
+*_pybdsm/
+bdsf_out/
+.flake8
+.vscode/

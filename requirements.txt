@@ -14,6 +14,7 @@ scikit-learn
 umap-learn
 datashader
 memory_profiler
+montage-wrapper
 
 # Test requirements
 pytest

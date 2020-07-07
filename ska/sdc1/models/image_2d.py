@@ -1,12 +1,15 @@
 import os
 
+import montage_wrapper as montage
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
-from astropy.wcs import WCS
 
 from ska.sdc1.utils.image_utils import crop_to_training_area, save_subimage
+
+# from astropy.nddata.utils import Cutout2D
+# from astropy.wcs import WCS
 
 
 class Image2d:
@@ -92,29 +95,33 @@ class Image2d:
         self._train = train_path
 
     def _apply_pb_corr(self):
-        with fits.open(self.path)[0] as image_hdu:
+        """
+        Currently fails at montage.reproject step due to input image format
+        """
+        with fits.open(self.path) as image_hdu:
             # cutout pb field of view to match image field of view
-            x_size = image_hdu.header["NAXIS1"]
-            x_pixel_deg = image_hdu.header[
+            x_size = image_hdu[0].header["NAXIS1"]
+            x_pixel_deg = image_hdu[0].header[
                 "CDELT2"
             ]  # CDELT1 is negative, so take positive one
         size = (
             x_size * x_pixel_deg * u.degree,
             x_size * x_pixel_deg * u.degree,
         )
-        with fits.open(self.pb_path)[0] as pb_hdu:
+        with fits.open(self.pb_path) as pb_hdu:
             # RA and DEC of beam PB pointing
             pb_pos = SkyCoord(
-                pb_hdu.header["CRVAL1"] * u.degree, pb_hdu.header["CRVAL2"] * u.degree
+                pb_hdu[0].header["CRVAL1"] * u.degree,
+                pb_hdu[0].header["CRVAL2"] * u.degree,
             )
         pb_cor_path = self.pb_path[:-5] + "_pb_corr.fits"
         pb_cor_rg_path = self.pb_path[:-5] + "_pb_corr_regrid.fits"
         save_subimage(self.pb_path, pb_cor_path, pb_pos, size)
 
-        # TODO: regrid PB image cutout to match pixel scale of the image FOV
+        # TODO: Regrid PB image cutout to match pixel scale of the image FOV
         # print(" Regridding image...")
         # # get header of image to match PB to
-        # montage.mGetHdr(imagename, "hdu_tmp.hdr")
+        # montage.mGetHdr(self.path, "hdu_tmp.hdr")
         # # regrid pb image (270 pixels) to size of ref image (32k pixels)
         # montage.reproject(
         #     in_images=pb_cor_path,
@@ -125,15 +132,17 @@ class Image2d:
         # os.remove("hdu_tmp.hdr")  # get rid of header text file saved to disk
 
         # # do pb correction
-        # pb = fits.open(pbname[:-5] + "_PBCOR_regrid.fits")[0]
-        # # fix nans introduced in primary beam by montage at edges
-        # print(pb.data)
-        # mask = np.isnan(pb.data)
-        # pb.data[mask] = np.interp(
-        #     np.flatnonzero(mask), np.flatnonzero(~mask), pb.data[~mask]
-        # )
-        # image.data = image.data / pb.data
-        # image.writeto(imagename[:-5] + "_PBCOR.fits", overwrite=True)
+        # with fits.open(pb_cor_rg_path) as pb_hdu:
+        #     # fix nans introduced in primary beam by montage at edges
+        #     print(pb_hdu[0].data)
+        #     mask = np.isnan(pb_hdu[0].data)
+        #     pb_hdu[0].data[mask] = np.interp(
+        #         np.flatnonzero(mask), np.flatnonzero(~mask), pb_hdu[0].data[~mask]
+        #     )
+        #     pb_data = pb_hdu[0].data
+        # with fits.open(self.path) as hdu:
+        #     hdu[0].data = hdu[0].data / pb_data
+        # hdu[0].writeto(pb_cor_path, overwrite=True)
 
     def _delete_train(self):
         if self.train is None:

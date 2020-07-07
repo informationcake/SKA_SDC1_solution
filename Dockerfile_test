@@ -40,6 +40,13 @@ RUN apt-get update \
     wget \
     screen
 
+# Install Montage
+RUN git clone https://github.com/Caltech-IPAC/Montage.git
+RUN cd /Montage
+RUN make
+RUN cd /
+ENV PATH="/Montage/bin:${PATH}"
+
 # Copy code
 # COPY ./ska /app/ska
 # COPY ./tests /app/tests
