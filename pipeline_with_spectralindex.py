@@ -101,27 +101,37 @@ def do_primarybeam_correction(pbname, imagename):
 
 
 
-def crop_560MHz_to1400MHz(imagename, ref_imagename):
-    # Adapted from https://docs.astropy.org/en/stable/nddata/utils.html
-    print(' Cropping 560 MHz image to 1400 MHz FOV...')
-    ref_hdu = fits.open(ref_imagename)[0] # the 1400mhz image
-    hdu = fits.open(imagename)[0]
-    #CRVAL3 = hdu.header['CRVAL3']
-    wcs = WCS(hdu.header)
+def crop_images(imagename_560, imagename_1400):
+    # Using Cutout2D from https://docs.astropy.org/en/stable/nddata/utils.html
+    # Cropping 1400 and 560 MHz images to smaller FOV
+    # take 1400 MHz FOV and crop by a further 7000 pixels (chosen by eye) to remove most of the primary beam noise
+    print(' Cropping 560 and 1400 MHz images to same field of view...')
+    hdu1400 = fits.open(imagename_1400)[0] # the 1400mhz image
+    hdu560 = fits.open(imagename_560)[0]
+    wcs560 = WCS(hdu560.header)
+    wcs1400 = WCS(hdu1400.header)
     # cutout to 1400 MHz area. hard coded, since 1400 MHz beam is 2.5 times smaller than 560 MHz beam.
-    x_size = ref_hdu.header['NAXIS1']
-    x_pixel_deg = ref_hdu.header['CDELT2'] # CDELT1 is negative, so take positive one
+    x_size = hdu1400.header['NAXIS1']
+    x_size = x_size - 14000 # crop in a further 7000 pixels each side
+    x_pixel_deg = hdu1400.header['CDELT2'] # CDELT1 is negative, so take positive one
     size = (x_size*x_pixel_deg*u.degree, x_size*x_pixel_deg*u.degree) # angular size of cutout, using astropy coord. approx 32768*0.6 arcseconds.
-    position = SkyCoord(hdu.header['CRVAL1']*u.degree, hdu.header['CRVAL2']*u.degree) # RA and DEC of beam PB pointing
-    cutout = Cutout2D(hdu.data, position=position, size=size, mode='trim', wcs=wcs.celestial, copy=True)
-    hdu.data = cutout.data # Put the cutout image in the FITS HDU
-    hdu.header.update(cutout.wcs.to_header()) # Update the FITS header with the cutout WCS
+    position = SkyCoord(hdu560.header['CRVAL1']*u.degree, hdu560.header['CRVAL2']*u.degree) # RA and DEC of beam PB pointing
+    # crop 1400 MHz image
+    cutout = Cutout2D(hdu560.data, position=position, size=size, mode='trim', wcs=wcs560.celestial, copy=True)
+    hdu560.data = cutout.data # Put the cutout image in the FITS HDU
+    hdu560.header.update(cutout.wcs.to_header()) # Update the FITS header with the cutout WCS
+    hdu560.writeto(imagename_560[:-5]+'_crop.fits', overwrite=True) # Write the cutout to a new FITS file
+    # crop 560 MHz image
+    cutout = Cutout2D(hdu1400.data, position=position, size=size, mode='trim', wcs=wcs1400.celestial, copy=True)
+    hdu1400.data = cutout.data # Put the cutout image in the FITS HDU
+    hdu1400.header.update(cutout.wcs.to_header()) # Update the FITS header with the cutout WCS
+    hdu1400.writeto(imagename_1400[:-5]+'_crop.fits', overwrite=True) # Write the cutout to a new FITS file
     
     # must update the freq in the header every time we run Cutout2D, which removes it
     #hdu.header.set('CRPIX3', 1) # Need ref pix=1
     #hdu.header.set('CRVAL3', CRVAL3) # ch0 freq
     #hdu.header.set('CTYPE3', 'FREQ    ') # 3rd axis is freq
-    hdu.writeto(imagename[:-5]+'_CropTo1400mhzFOV.fits', overwrite=True) # Write the cutout to a new FITS file
+    
     
 
 
@@ -277,7 +287,7 @@ def make_image_cube(imagename560, imagename1400, outfilename):
 
 
     
-def do_sourcefinding_cube(imagename, ch0=0, collapse_mode='average'):
+def do_sourcefinding_cube(imagename, collapse_mode='average', ch0=0):
     # get beam info manually. SKA image seems to cause PyBDSF issues finding this info.
     hdu = fits.open(imagename)
     beam_maj = hdu[0].header['BMAJ']
@@ -290,7 +300,7 @@ def do_sourcefinding_cube(imagename, ch0=0, collapse_mode='average'):
         atrous_do=False, psf_vary_do=False, psf_snrcut=5.0, psf_snrcutstack=10.0,\
         output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
         blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
-        collapse_mode=collapse_mode, collapse_ch0=ch0, collapse_wt='rms',\
+        collapse_mode=collapse_mode, collapse_ch0=ch0, collapse_wt='unity',\
         incl_chan=True, specind_snr=5.0, frequency_sp=[560e6, 1400e6]) # use 560 Mhz image as ch0
     # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
     # turns out this doesn't work you have to run it inside an interactive python session
@@ -314,7 +324,8 @@ def do_sourcefinding(imagename):
     img = bdsf.process_image(imagename, adaptive_rms_box=False, advanced_opts=True,\
         atrous_do=False, psf_vary_do=False, psf_snrcut=5.0, psf_snrcutstack=10.0,\
         output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
-        blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30) # 
+        blank_limit=None, thresh='hard', thresh_isl=4.0, thresh_pix=5.0, psf_snrtop=0.30,\
+        do_cache=True) # 
     # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
     # turns out this doesn't work you have to run it inside an interactive python session
     # save_obj(img, 'pybdsf_processimage_'+imagename[:-5])
@@ -327,19 +338,19 @@ def do_sourcefinding(imagename):
     
 if __name__ == '__main__':
     
-    do_primarybeam_correction('560mhz_primarybeam.fits', '560mhz8hours.fits')
-    do_primarybeam_correction('1400mhz_primarybeam.fits', '1400mhz8hours.fits')
+    #do_primarybeam_correction('560mhz_primarybeam.fits', '560mhz8hours.fits')
+    #do_primarybeam_correction('1400mhz_primarybeam.fits', '1400mhz8hours.fits')
     
     
     ### TRAINING AREA common to 560 and 1400 MHz images ###
     # Make cutouts of the training area common to both images
-    crop_training_area('1400mhz8hours_PBCOR.fits')
-    crop_training_area('560mhz8hours_PBCOR.fits')
+    #crop_training_area('1400mhz8hours_PBCOR.fits')
+    #crop_training_area('560mhz8hours_PBCOR.fits')
     # convolve and regrid to match 1400 MHz image to 560 MHz image
-    convolve_regrid('1400mhz8hours_PBCOR_trainarea.fits', '560mhz8hours_PBCOR_trainarea.fits', make_beam_plot=True)
+    #convolve_regrid('1400mhz8hours_PBCOR_trainarea.fits', '560mhz8hours_PBCOR_trainarea.fits', make_beam_plot=True)
     
     # Make image cube, images now at same resolution, same sky area, same pixel size
-    make_image_cube('560mhz8hours_PBCOR_trainarea.fits', '1400mhz8hours_PBCOR_trainarea_convolved_regrid.fits', 'cube_560_1400_train.fits')
+    #make_image_cube('560mhz8hours_PBCOR_trainarea.fits', '1400mhz8hours_PBCOR_trainarea_convolved_regrid.fits', 'cube_560_1400_train.fits')
     
     # Do sourcefinding on each image in the training area separately
     #do_sourcefinding('560mhz8hours_PBCOR_trainarea.fits')
@@ -349,18 +360,22 @@ if __name__ == '__main__':
     # ch0 selects the image to find source island from: 0 is 560 MHz, 1 is 1400 MHz
     #do_sourcefinding_cube('cube_560_1400_train.fits', ch0=0, collapse_mode='average')
     #do_sourcefinding_cube('cube_560_1400_train.fits', ch0=1) 
-    # currently the log incorrectly says the ch0=1 is 560 MHz, i am fairly certain this is a bug as Spec_Indx is correctly calculated.
+    # currently the log incorrectly says the ch0=1 is 560 MHz, i think this is a bug as Spec_Indx is correctly calculated. 
+    # Or, i don't have the cube header in the expected format?
     
+    #do_sourcefinding('1400mhz8hours_PBCOR.fits')
+    #do_sourcefinding('560mhz8hours_PBCOR.fits')
+
 
     ### Whole image ###
-    # crop 560 MHz image to size of 1400 MHz image
-    #crop_560MHz_to1400MHz('560mhz8hours_PBCOR.fits', '1400mhz8hours_PBCOR.fits')
+    # crop 560 and 1400 MHz images to same field of view, also removing most primary beam noise
+    #crop_images('560mhz8hours_PBCOR.fits', '1400mhz8hours_PBCOR.fits')
     # Convolve and regrid 1400 MHz image to match that of the 560 MHz image
-    #convolve_regrid('1400mhz8hours_PBCOR.fits', '560mhz8hours_PBCOR_CropTo1400mhzFOV.fits', make_beam_plot=True)
+    #convolve_regrid('1400mhz8hours_PBCOR_crop.fits', '560mhz8hours_PBCOR_crop.fits', make_beam_plot=True)
     # Make image cube, images now at same resolution, same 1400 MHz sky area, same pixel size
-    #make_image_cube('560mhz8hours_PBCOR_CropTo1400mhzFOV.fits', '1400mhz8hours_PBCOR_convolved_regrid.fits', 'cube_560_1400.fits')
+    #make_image_cube('560mhz8hours_PBCOR_crop.fits', '1400mhz8hours_PBCOR_crop_convolved_regrid.fits', 'cube_560_1400.fits')
     # do source finding with spectral index mode on the image cube
-    #do_sourcefinding_cube('cube_560_1400.fits', ch0=0, collapse_mode='average')
+    #do_sourcefinding_cube('cube_560_1400.fits', collapse_mode='average', ch0=0)
     
     
     
