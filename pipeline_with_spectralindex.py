@@ -75,7 +75,7 @@ def update_header_from_cutout2D(hdu, cutout):
 
 
 def do_primarybeam_correction(pbname, imagename):
-    print(' Preparing to apply the primary beam correction...')
+    print(' Preparing to apply the primary beam correction to {0}'.format(imagename))
     hdu = fits.open(imagename)[0]
     pb = fits.open(pbname)[0]
     wcs = WCS(pb.header)
@@ -103,17 +103,21 @@ def do_primarybeam_correction(pbname, imagename):
     montage.reproject(in_images=pbname[:-5]+'_cutout.fits', out_images=pbname[:-5]+'_cutout_regrid.fits', header='hdu_tmp.hdr', exact_size=True)
     os.remove('hdu_tmp.hdr') # get rid of header text file saved to disk
 
-    # do pb correction
-    pb = fits.open(pbname[:-5]+'_cutout_regrid.fits')[0]
-    # montage got rid of dtype info, and made the data 2D, fix these:
-    newdata = np.zeros((1,1,pb.data.shape[0], pb.data.shape[1]), dtype=np.float32)
-    newdata[0,0,:,:] = pb.data
-    pb.data = newdata # naxis will automatically update to 4 in the header
+    # update montage output to float32
+    pb = fits.open(pbname[:-5]+'_cutout_regrid.fits', mode='update')
+    newdata = np.zeros((1,1,pb[0].data.shape[0], pb[0].data.shape[1]), dtype=np.float32)
+    newdata[0,0,:,:] = pb[0].data
+    pb[0].data = newdata # naxis will automatically update to 4 in the header
 
     # fix nans introduced in primary beam by montage at edges and write to new file
     print(' A small buffer of NaNs is introduced around the image by Montage when regridding to match the size, \n these have been set to the value of their nearest neighbours to maintain the same image dimensions')
-    mask = np.isnan(pb.data)
-    pb.data[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), pb.data[~mask])
+    mask = np.isnan(pb[0].data)
+    pb[0].data[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), pb[0].data[~mask])
+    pb.flush()
+    pb.close()
+
+    # apply primary beam correction
+    pb = fits.open(pbname[:-5]+'_cutout_regrid.fits')[0]
     hdu.data = hdu.data / pb.data
     hdu.writeto(imagename[:-5]+'_PBCOR.fits', overwrite=True)
     print(' Primary beam correction applied to {0}'.format(imagename[:-5]+'_PBCOR.fits') )
@@ -244,7 +248,7 @@ def convolve_regrid(imagename, ref_imagename, make_beam_plot=True):
     # correct for Jy/beam scale change (proportional to change in beam area)
     hdu1400_data_convolved = hdu1400_data_convolved * ((hdu560.header['BMAJ']**2)/(hdu1400.header['BMAJ']**2))
     # add back to header in 4D
-    newdata = np.zeros((1,1,cutout.data.shape[0], cutout.data.shape[1]), dtype=np.float32)
+    newdata = np.zeros((1,1,hdu1400_data_convolved.data.shape[0], hdu1400_data_convolved.data.shape[1]), dtype=np.float32)
     newdata[0,0,:,:] = hdu1400_data_convolved
     hdu1400.data = newdata # data now 4D
     hdu1400.writeto(imagename[:-5]+'_convolved.fits', overwrite=True) # save to disk
@@ -258,11 +262,13 @@ def convolve_regrid(imagename, ref_imagename, make_beam_plot=True):
     os.remove('hdu560_tmp.hdr') # get rid of header text file saved to disk
 
     # montage got rid of dtype info, and made the data 2D, fix these:
-    hdu = fits.open(imagename[:-5]+'_convolved_regrid.fits', mode='update')[0]
-    newdata = np.zeros((1,1,hdu.data.shape[0], hdu.data.shape[1]), dtype=np.float32)
-    newdata[0,0,:,:] = hdu.data
-    hdu.data = newdata # naxis will automatically update to 4 in the header
-    hdu.close() # writes changes back as opened in 'update' mode.
+    hdu = fits.open(imagename[:-5]+'_convolved_regrid.fits', mode='update')
+    newdata = np.zeros((1,1,hdu[0].data.shape[0], hdu[0].data.shape[1]), dtype=np.float32)
+    newdata[0,0,:,:] = hdu[0].data
+    hdu[0].data = newdata # naxis will automatically update to 4 in the header
+    hdu.flush() # writes changes back as opened in 'update' mode.
+    # note that hdu.close() fails because montage changes order of header cards.
+    # hdu.flush() appears to have built in tests which correct header card order before saving it to disk.
 
 
 
@@ -276,7 +282,7 @@ def make_image_cube(imagename560, imagename1400, outfilename):
     print(' Making image cube...')
     hdu560 = fits.open(imagename560)[0]
     hdu1400 = fits.open(imagename1400)[0]
-    cube = np.zeros((2, hdu560.data.shape[0], hdu560.data.shape[1]))
+    cube = np.zeros((2, hdu560.data[0,0,:,:].shape[0], hdu560.data[0,0,:,:].shape[1]))
     cube[0,:,:] = hdu560.data[:,:] # add 560 Mhz data
     cube[1,:,:] = hdu1400.data[:,:] # add 1400 Mhz data
     hdu_cube = fits.PrimaryHDU(data=cube, header=hdu560.header)
@@ -348,7 +354,6 @@ if __name__ == '__main__':
     do_primarybeam_correction('560mhz_primarybeam.fits', '560mhz1000hours.fits')
     do_primarybeam_correction('1400mhz_primarybeam.fits', '1400mhz1000hours.fits')
 
-    
     #####################################################################
     ### TRAINING AREA ###
     # common to 560 and 1400 MHz images ###
@@ -371,6 +376,7 @@ if __name__ == '__main__':
     # currently the log incorrectly says the ch0=1 is 560 MHz instead of 1400, i think this is a bug as Spec_Indx is correctly calculated. I may have the cube header in an unexpected format?
 
 
+
     #####################################################################
     ### Whole image ###
     # Do sourcefinding on each image
@@ -388,7 +394,7 @@ if __name__ == '__main__':
     # same caveats as before
     do_sourcefinding_cube('cube_560_1400.fits', collapse_mode='average')
 
-    
+
 
     # notes
     '''
@@ -398,6 +404,6 @@ if __name__ == '__main__':
 
     To do: I need to test using a 'detection_image', instead of using the 'collapse_mode' parameter. This should mean a consistent image is used for finding source islands (the detection image, which i would make by hand averaging the 560 and 1400 MHz images), and total and peak fluxes are extracted per source.
     '''
-    
+
 
     #
