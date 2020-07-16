@@ -317,12 +317,15 @@ def do_sourcefinding_cube(imagename, collapse_mode='average', ch0=0):
     
 def do_sourcefinding(imagename):
     # get beam info manually. SKA image seems to cause PyBDSF issues finding this info.
-    f = fits.open(imagename)
-    beam_maj = f[0].header['BMAJ']
-    beam_min = f[0].header['BMIN']
-    #beam_pa = f[0].header['BPA'] # not in SKA fits header, but we know it's circular
+    hdu = fits.open(imagename, mode='update')
+    beam_maj = hdu[0].header['BMAJ']
+    beam_min = hdu[0].header['BMIN']
+    #beam_pa = hdu[0].header['BPA'] # not in SKA fits header, but we know it's circular
     beam_pa = 0
-    f.close()
+    hdu[0].header.set('CRPIX3', 1) # Need ref pix=1
+    hdu[0].header.set('CRVAL3', 1400000000) # ch0 freq
+    hdu[0].header.set('CTYPE3', 'FREQ    ') # 3rd axis is freq
+    hdu.close()
     # Run sourcefinding using some sensible hyper-parameters. PSF_vary and adaptive_rms_box is more computationally intensive, off for now
     img = bdsf.process_image(imagename, adaptive_rms_box=False, advanced_opts=True,\
         atrous_do=False, psf_vary_do=False, psf_snrcut=5.0, psf_snrcutstack=10.0,\
@@ -342,7 +345,7 @@ def do_sourcefinding(imagename):
 if __name__ == '__main__':
     
     #do_primarybeam_correction('560mhz_primarybeam.fits', '560mhz8hours.fits')
-    #do_primarybeam_correction('1400mhz_primarybeam.fits', '1400mhz8hours.fits')
+    do_primarybeam_correction('1400mhz_primarybeam.fits', '1400mhz8hours.fits')
     
     
     ### TRAINING AREA common to 560 and 1400 MHz images ###
@@ -366,7 +369,7 @@ if __name__ == '__main__':
     # currently the log incorrectly says the ch0=1 is 560 MHz, i think this is a bug as Spec_Indx is correctly calculated. 
     # Or, i don't have the cube header in the expected format?
     
-    #do_sourcefinding('1400mhz8hours_PBCOR.fits')
+    do_sourcefinding('1400mhz8hours_PBCOR.fits')
     #do_sourcefinding('560mhz8hours_PBCOR.fits')
 
 
