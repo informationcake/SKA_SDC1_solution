@@ -66,7 +66,7 @@ def do_primarybeam_correction(pbname, imagename):
     hdu.header.remove('CTYPE4')
     pb = fits.open(pbname)[0]
     wcs = WCS(pb.header)
-    
+
     # cutout pb field of view to match image field of view
     x_size = hdu.header['NAXIS1']
     x_pixel_deg = hdu.header['CDELT2'] # CDELT1 is negative, so take positive one
@@ -87,12 +87,15 @@ def do_primarybeam_correction(pbname, imagename):
     os.remove('hdu_tmp.hdr') # get rid of header text file saved to disk
 
     # do pb correction
-    pb = fits.open(pbname[:-5]+'_cutout_regrid.fits')[0]
+    pb = fits.open(pbname[:-5]+'_cutout_regrid.fits', mode='update')
+    # montage got rid of dtype info, replace:
+    pb[0].data = np.float32(pb[0].data)
+    pb.flush()
     # fix nans introduced in primary beam by montage at edges
     print(' A small buffer of NaNs is introduced around the image by Montage when regridding to match the size, \n these have been set to the value of their nearest neighbours to maintain the same image dimensions')
-    mask = np.isnan(pb.data)
-    pb.data[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), pb.data[~mask])
-    hdu.data = hdu.data[0,0,:,:] / pb.data
+    mask = np.isnan(pb[0].data)
+    pb[0].data[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), pb[0].data[~mask])
+    hdu.data = hdu.data[0,0,:,:] / pb[0].data
     hdu.writeto(imagename[:-5]+'_PBCOR.fits', overwrite=True)
 
     
