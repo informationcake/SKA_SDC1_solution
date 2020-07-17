@@ -65,6 +65,60 @@ def update_header_from_cutout2D(hdu, cutout):
 
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
 
+	
+	
+def do_primarybeam_correction(pbname, imagename):
+    print(' Preparing to apply the primary beam correction to {0}'.format(imagename))
+    hdu = fits.open(imagename)[0]
+    pb = fits.open(pbname)[0]
+    wcs = WCS(pb.header)
+
+    # cutout pb field of view to match image field of view
+    x_size = hdu.header['NAXIS1']
+    x_pixel_deg = hdu.header['CDELT2'] # CDELT1 is negative, so take positive one
+    size = (x_size*x_pixel_deg*u.degree, x_size*x_pixel_deg*u.degree) # angular size of cutout, using astropy coord. approx 32768*0.6 arcseconds.
+    position = SkyCoord(pb.header['CRVAL1']*u.degree, pb.header['CRVAL2']*u.degree) # RA and DEC of beam PB pointing
+    print(' Cutting out image FOV from primary beam image...')
+    cutout = Cutout2D(pb.data[0,0,:,:], position=position, size=size, mode='trim', wcs=wcs.celestial, copy=True)
+
+    # Update the FITS header with the cutout WCS by hand using my own function
+    # don't use cutout.wcs.to_header() because it doesn't account for the freq and stokes axes. is only compatible with 2D fits images.
+    #pb.header.update(cutout.wcs.to_header()) #
+    pb = update_header_from_cutout2D(pb, cutout)
+    # write updated fits file to disk
+    pb.writeto(pbname[:-5]+'_cutout.fits', overwrite=True) # Write the cutout to a new FITS file
+
+    # regrid PB image cutout to match pixel scale of the image FOV
+    print(' Regridding image...')
+    # get header of image to match PB to
+    montage.mGetHdr(imagename, 'hdu_tmp.hdr')
+    # regrid pb image (270 pixels) to size of ref image (32k pixels)
+    montage.reproject(in_images=pbname[:-5]+'_cutout.fits', out_images=pbname[:-5]+'_cutout_regrid.fits', header='hdu_tmp.hdr', exact_size=True)
+    os.remove('hdu_tmp.hdr') # get rid of header text file saved to disk
+
+    # update montage output to float32
+    pb = fits.open(pbname[:-5]+'_cutout_regrid.fits', mode='update')
+    newdata = np.zeros((1,1,pb[0].data.shape[0], pb[0].data.shape[1]), dtype=np.float32)
+    newdata[0,0,:,:] = pb[0].data
+    pb[0].data = newdata # naxis will automatically update to 4 in the header
+
+    # fix nans introduced in primary beam by montage at edges and write to new file
+    print(' A small buffer of NaNs is introduced around the image by Montage when regridding to match the size, \n these have been set to the value of their nearest neighbours to maintain the same image dimensions')
+    mask = np.isnan(pb[0].data)
+    pb[0].data[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), pb[0].data[~mask])
+    pb.flush()
+    pb.close()
+
+    # apply primary beam correction
+    pb = fits.open(pbname[:-5]+'_cutout_regrid.fits')[0]
+    hdu.data = hdu.data / pb.data
+    hdu.writeto(imagename[:-5]+'_PBCOR.fits', overwrite=True)
+    print(' Primary beam correction applied to {0}'.format(imagename[:-5]+'_PBCOR.fits') )
+
+
+	
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
 
 
 def do_image_chopping(input_image, split_into):
@@ -170,30 +224,40 @@ def do_sourcefinding(imagename, si=True):
     
 
 if __name__ == '__main__':
+			  		  
+    # Applying primary beam correction
+    do_primarybeam_correction('560mhz_primarybeam.fits', '560mhz1000hours.fits')
+    do_primarybeam_correction('1400mhz_primarybeam.fits', '1400mhz1000hours.fits')
+			  
     # divide x and y axes by split_into. This gives split_into**2 output images.
     # a 3 by 3 grid allows pybdsf to run efficiently (fails on the 4GB 32k x 32k pixel image) whilst avoiding cutting through the centre of the image
     split_into = 3
     
     # load image to get properties
-    input_image_560 = '560mhz8hours.fits'
-    input_image_1400 = '1400mhz8hours.fits'
+    input_image_560 = '560mhz1000hours.fits'
+    input_image_1400 = '1400mhz1000hours.fits'
     
     # cut up images and save to disk
     do_image_chopping(input_image_560, split_into)
     do_image_chopping(input_image_1400, split_into)
     
     # make image cube of the frequencies per cutout and save to disk, so pybdsf can use spectral index mode
-    make_image_cubes()
-    
-    # do source finding. Multithread this part? crashes. for loop is safer.             
-    # sourcefinding on cube to get spectral indcies (si=True)
-    imagenames = sorted(glob.glob('cube_cutout_*.fits'))
-    for image in imagenames:
-        do_sourcefinding(image, si=True)
-                                    
+    # currently not working since don't need this part at the moment.
+    make_image_cubes()                     
                                     
     # sourcefinding on individual frequency bands
-    #imagenames = glob.glob('*_cutout.fits')
+    imagenames = glob.glob('*_cutout.fits')
+    for image in imagenames:
+        do_sourcefinding(image)
+			  
+    # sourcefinding on cube to get spectral indcies (si=True)
+    # currently not working since need to chop images to same field of view before making cubes.
+    # use code from pipeline.py if needed?
+    #imagenames = sorted(glob.glob('cube_cutout_*.fits'))
     #for image in imagenames:
-    #    do_sourcefinding(image)
+    #    do_sourcefinding(image, si=True)
 
+                      
+                      
+                      
+    #
