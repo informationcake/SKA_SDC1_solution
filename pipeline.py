@@ -283,8 +283,8 @@ def make_image_cube(imagename560, imagename1400, outfilename):
     hdu560 = fits.open(imagename560)[0]
     hdu1400 = fits.open(imagename1400)[0]
     cube = np.zeros((2, hdu560.data[0,0,:,:].shape[0], hdu560.data[0,0,:,:].shape[1]))
-    cube[0,:,:] = hdu560.data[:,:] # add 560 Mhz data
-    cube[1,:,:] = hdu1400.data[:,:] # add 1400 Mhz data
+    cube[0,:,:] = hdu560.data[0,0,:,:] # add 560 Mhz data
+    cube[1,:,:] = hdu1400.data[0,0,:,:] # add 1400 Mhz data
     hdu_cube = fits.PrimaryHDU(data=cube, header=hdu560.header)
     # update frequency info in the header of cube
     hdu_cube.header.set('CRPIX3', 1) # Need ref pix=1
