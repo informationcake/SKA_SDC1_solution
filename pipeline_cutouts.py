@@ -27,11 +27,8 @@ from memory_profiler import profile
 
 
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
-
-
-
-
-
+	
+	
 
 #Loading/saving python data objects
 def save_obj(obj, name ):
@@ -44,56 +41,37 @@ def load_obj(name ):
 
 
 
-
-
-
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
 
 
 
-
-
-
-def save_cutout(input_image, position, size, part):
-    # Adapted from https://docs.astropy.org/en/stable/nddata/utils.html
-    # Load the image and the WCS
-    hdu = fits.open(input_image)[0]
-    wcs = WCS(hdu.header)
-    
-    # Make the cutout, including the WCS. Keep only 2D, drop additional axis with .celestial. SKA image has 4D so hdu.data[0,0,:,:].
-    # mode has to be 'trim', as the 'partial' mode includes a buffer beyond the edge of the images. PyBDSF spectral index mode cannot handle NaNs so image cut has to be exact.
-    cutout = Cutout2D(hdu.data[0,0,:,:], position=position, size=size, wcs=wcs.celestial, mode='trim', fill_value=np.nan)
-
-    # Put the cutout image in the FITS HDU
-    hdu.data = cutout.data
-
-    # Update the FITS header with the cutout WCS
-    hdu.header.update(cutout.wcs.to_header())
-
-    # Write the cutout to a new FITS file, labelled by n parts.
-    cutout_filename = input_image[:-5]+'_'+str(part)+'_cutout.fits'
-    hdu.writeto(cutout_filename, overwrite=True)
-    return cutout
-    
-
-
+def update_header_from_cutout2D(hdu, cutout):
+    # update data
+    newdata = np.zeros((1,1,cutout.data.shape[0], cutout.data.shape[1]), dtype=np.float32)
+    newdata[0,0,:,:] = cutout.data
+    hdu.data = newdata
+    # update header cards returned from cutout2D wcs:
+    hdu.header.set('CRVAL1', cutout.wcs.wcs.crval[0])
+    hdu.header.set('CRVAL2', cutout.wcs.wcs.crval[1])
+    hdu.header.set('CRPIX1', cutout.wcs.wcs.crpix[0])
+    hdu.header.set('CRPIX2', cutout.wcs.wcs.crpix[1])
+    hdu.header.set('CDELT1', cutout.wcs.wcs.cdelt[0])
+    hdu.header.set('CDELT2', cutout.wcs.wcs.cdelt[1])
+    hdu.header.set('NAXIS1', cutout.wcs.pixel_shape[0])
+    hdu.header.set('NAXIS2', cutout.wcs.pixel_shape[1])
+    return hdu
 
 
 
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
-
-
-
 
 
 
 def do_image_chopping(input_image, split_into):
-    f = fits.open(input_image)
-    # currently hard coded to only accept square images... fix later.
-    im_width = f[0].header['NAXIS1'] # get image width
-    data = f[0].data[0,0,:,:] # get image data, drop first two axes.
-    f.close() # keep tidy.
-    
+    hdu = fits.open(input_image)[0]
+    wcs = WCS(hdu.header)
+    # currently hard coded to only accept square images
+    im_width = hdu.header['NAXIS1'] # get image width
     print(' Input fits image dimensions: {0}'.format(im_width))
     print(' Cutting into {0} images of dimensions {1}'.format(split_into**2, im_width/split_into))
     
@@ -122,59 +100,49 @@ def do_image_chopping(input_image, split_into):
     plt.figure() # plot original image and overlay cutout boundaries at the end.
     data[data<1e-7]=1e-7 # min pixel brightness to display
     data[data>1e-5]=1e-5 # max pixel brightness to display
-    plt.imshow(data, origin='lower')
+    plt.imshow(hdu.data[0,0,:,:], origin='lower')
     colourlist=iter(cm.rainbow(np.linspace(0,1,split_into**2))) # each cutout a different colour
     for i in range(split_into**2):
         print(' Cutting out image {0} of {1}'.format(i+1, split_into**2))
-        cutout = save_cutout(input_image, tuple(position_coords_inpixels[i]), tuple(size_inpixels[i]), i)
-        cutout.plot_on_original(color=next(colourlist))
+	cutout = Cutout2D(hdu.data[0,0,:,:], position=tuple(position_coords_inpixels[i], size=tuple(size_inpixels[i]), mode='trim', wcs=wcs.celestial, copy=True)
+	cutout.plot_on_original(color=next(colourlist))
+   	# Update the FITS header with the cutout WCS by hand using my own function
+    	hdu = update_header_from_cutout2D(hdu, cutout)
+    	hdu.writeto(input_image[:-5]+'_'+str(i)+'_cutout.fits', overwrite=True) # Write the cutout to a new FITS file
     print(' Saving cutout arrangement as {0}'.format(input_image+'_cutouts.png'))
     plt.savefig(input_image+'_cutout_annotation.png')
     
 
 
-
-
-
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
 
-    
-    
-    
 
     
-# make image cube for pybdsf spectral index mode
-def make_image_cubes():
+# make image cube for pybdsf spectral index mode, looping over all cutouts
+def make_image_cubes_for_cutouts():
     # get cutout file names, must be in same order so they are matched correctly
-    images_560 = sorted(glob.glob('560*.fits'))
-    images_1400 = sorted(glob.glob('1400*.fits'))
+    images_560 = sorted(glob.glob('560*_cutout.fits'))
+    images_1400 = sorted(glob.glob('1400*_cutout.fits'))
     # loop over image cutouts to make cube for each of them
     for file560, file1400, i in zip(images_560, images_1400, range(len(images_560))):
         print(' Making cube {0} of {1}'.format(i, len(images_560)-1))
-        f560 = fits.open(file560)
-        f1400 = fits.open(file1400)
+        hdu560 = fits.open(file560)[0]
+        hdu1400 = fits.open(file1400)[0]
         # make cube from the input files along freq axis
-        cube = np.zeros((2,f560[0].data.shape[0],f560[0].data.shape[1]))
-        cube[0,:,:] = f560[0].data[:,:] # add 560 Mhz data
-        cube[1,:,:] = f1400[0].data[:,:] # add 1400 Mhz data
-        hdu_new = fits.PrimaryHDU(data=cube, header=f560[0].header)
+        cube = np.zeros((2,hdu560.data.shape[0],hdu560.data.shape[1]))
+        cube[0,:,:] = hdu560.data[0,0,:,:] # add 560 Mhz data
+        cube[1,:,:] = hdu1400.data[0,0,:,:] # add 1400 Mhz data
+        hdu_new = fits.PrimaryHDU(data=cube, header=hdu560.header)
         # update frequency info in the header. It puts 560MHz as ch0, but incorrectly assigns the interval to the next freq channel
         hdu_new.header.set('CDELT3', 840000000) # 1400 MHz - 560 MHz = 840 MHz.
-        hdu_new.writeto('cube_'+str(i)+'.fits')
+        hdu_new.writeto('cube_cutout_'+str(i)+'.fits')
     
-    
-    
-    
-    
+        
     
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+                                  
                                     
-                                    
-                                    
-                                    
-                                    
-                                    
-# adding @profile enables RAM profiling. Run as normal and it will print out RAM stats at the end. Or run as 'mprof run sourcefind.py'. Then 'mprof plot' to get RAM vs time plot.
+         
 def do_sourcefinding(imagename, si=True):
     # get beam info manually. SKA image seems to cause PyBDSF issues finding this info.
     f = fits.open(imagename)
@@ -185,32 +153,19 @@ def do_sourcefinding(imagename, si=True):
     f.close()
     # using some sensible and thorough hyper-parameters. PSF_vary and adaptive_rms_box is more computationally intensive, but needed.
     if si==True:
-        img = bdsf.process_image(imagename, adaptive_rms_box=True, spectralindex_do=True, advanced_opts=True,\
-            atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
-            output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
-            blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
-            collapse_mode='single') # use 560 Mhz image as ch0
-        # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
-        save_obj(img, 'pybdsf_processimage_'+imagename[:-5])
+        img = bdsf.process_image(imagename, adaptive_rms_box=False, spectralindex_do=True, advanced_opts=True,\
+            atrous_do=False, output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
+            blank_limit=None, thresh='hard', thresh_isl=4.0, thresh_pix=5.0, \
+            collapse_mode='average', collapse_wt='unity', frequency_sp=[560e6, 1400e6])
 									
     if si==False:                                
         img = bdsf.process_image(imagename, adaptive_rms_box=True, advanced_opts=True,\
-            atrous_do=False, psf_vary_do=True, psf_snrcut=5.0, psf_snrcutstack=10.0,\
-            output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
-            blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30)
-        # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
-        save_obj(img, 'pybdsf_processimage_noSI_'+imagename[:-5])
-
-
-
-
+            atrous_do=False, output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
+            blank_limit=None, thresh='hard', thresh_isl=4.0, thresh_pix=5.0, psf_snrtop=0.30)
 
 
 
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
-    
-    
-    
     
     
 
@@ -232,7 +187,7 @@ if __name__ == '__main__':
     
     # do source finding. Multithread this part? crashes. for loop is safer.             
     # sourcefinding on cube to get spectral indcies (si=True)
-    imagenames = sorted(glob.glob('cube_*.fits'))
+    imagenames = sorted(glob.glob('cube_cutout_*.fits'))
     for image in imagenames:
         do_sourcefinding(image, si=True)
                                     
@@ -241,13 +196,4 @@ if __name__ == '__main__':
     #imagenames = glob.glob('*_cutout.fits')
     #for image in imagenames:
     #    do_sourcefinding(image)
-                                    
-                                    
-                                    
-    # multirpocessing fails with mem error
-    #with multiprocessing.ThreadPool(processes=multiprocessing.cpu_count()) as pool:
-    #    pool.map(do_sourcefinding, imagenames) 
-    #    pool.close()
-    #    pool.join()
-        
-    # Gather files by hand and place then .srl.FITS files into the same directory
+
