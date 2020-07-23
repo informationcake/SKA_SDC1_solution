@@ -393,7 +393,8 @@ if __name__ == '__main__':
     # do source finding with spectral index mode on the image cube
     # same caveats as before
     do_sourcefinding_cube('cube_560_1400.fits', collapse_mode='average')
-
+    # do sourcefinding on the convolved 1400 MHz image, so we can get peak flux per source in the cube
+    do_sourcefinding('1400mhz1000hours_PBCOR_crop_convolved_regrid.fits')
 
 
     # notes
