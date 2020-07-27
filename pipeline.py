@@ -79,6 +79,10 @@ def do_primarybeam_correction(pbname, imagename):
     hdu = fits.open(imagename)[0]
     pb = fits.open(pbname)[0]
     wcs = WCS(pb.header)
+    
+    # there is a 0.005 arcsecond offset between the PB and image pointing centres,
+    # assumed to be a rounding error. Correct this in the PB iamge so it matches.
+    pb.header.set('CRVAL2', hdu.header['CRVAL2'])
 
     # cutout pb field of view to match image field of view
     x_size = hdu.header['NAXIS1']
@@ -198,7 +202,6 @@ def convolve_regrid(imagename, ref_imagename, make_beam_plot=True):
     print(' Convolving image...')
     hdu1400 = fits.open(imagename)[0]
     hdu560 = fits.open(ref_imagename)[0]
-    #CRVAL3 = hdu1400.header['CRVAL3']
     # degrees per pixel
     cdelt2_1400 = hdu1400.header['CDELT2']
     cdelt2_560 = hdu560.header['CDELT2']
@@ -261,11 +264,12 @@ def convolve_regrid(imagename, ref_imagename, make_beam_plot=True):
     montage.reproject(in_images=imagename[:-5]+'_convolved.fits', out_images=imagename[:-5]+'_convolved_regrid.fits', header='hdu560_tmp.hdr', exact_size=True)
     os.remove('hdu560_tmp.hdr') # get rid of header text file saved to disk
 
-    # montage got rid of dtype info, and made the data 2D, fix these:
+    # montage got rid of dtype info, and made the data 2D, and set the freq the same as ref_imagename, fix these:
     hdu = fits.open(imagename[:-5]+'_convolved_regrid.fits', mode='update')
     newdata = np.zeros((1,1,hdu[0].data.shape[0], hdu[0].data.shape[1]), dtype=np.float32)
     newdata[0,0,:,:] = hdu[0].data
     hdu[0].data = newdata # naxis will automatically update to 4 in the header
+    hdu[0].header.set('CRVAL3', hdu1400.header['CRVAL3']) # correct for montage replacing freq info
     hdu.flush() # writes changes back as opened in 'update' mode.
     # note that hdu.close() fails because montage changes order of header cards.
     # hdu.flush() appears to have built in tests which correct header card order before saving it to disk.
@@ -311,15 +315,13 @@ def do_sourcefinding_cube(imagename, collapse_mode='average', ch0=0):
     img = bdsf.process_image(imagename, adaptive_rms_box=False, spectralindex_do=True, advanced_opts=True,\
         atrous_do=False, psf_vary_do=False, psf_snrcut=5.0, psf_snrcutstack=10.0,\
         output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
-        blank_limit=None, thresh='hard', thresh_isl=5.0, thresh_pix=7.0, psf_snrtop=0.30,\
+        blank_limit=None, thresh='hard', thresh_isl=4.0, thresh_pix=5.0, psf_snrtop=0.30,\
         collapse_mode=collapse_mode, collapse_ch0=ch0, collapse_wt='unity',\
-        incl_chan=True, specind_snr=5.0, frequency_sp=[560e6, 1400e6]) # use 560 Mhz image as ch0
-    # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
-    # turns out this doesn't work you have to run it inside an interactive python session
-    # save_obj(img, 'pybdsf_processimage_'+imagename[:-5])
+        incl_chan=True, specind_snr=5.0, frequency_sp=[560e6, 1400e6],\
+        rms_map=True, rms_box=(30*pixperbeam, 8*pixperbeam), do_cache=True)
 
 
-
+    
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
 
 
@@ -331,13 +333,15 @@ def do_sourcefinding(imagename):
     beam_min = hdu[0].header['BMIN']
     #beam_pa = hdu[0].header['BPA'] # not in SKA fits header, but we know it's circular
     beam_pa = 0
+    # set rms_box as 30 beams in pixels
+    pixperbeam = beam_maj/hdu[0].header['CDELT2']
     hdu.close()
     # Run sourcefinding using some sensible hyper-parameters. PSF_vary and adaptive_rms_box is more computationally intensive, off for now
     img = bdsf.process_image(imagename, adaptive_rms_box=False, advanced_opts=True,\
         atrous_do=False, psf_vary_do=False, psf_snrcut=5.0, psf_snrcutstack=10.0,\
         output_opts=True, output_all=True, opdir_overwrite='append', beam=(beam_maj, beam_min, beam_pa),\
         blank_limit=None, thresh='hard', thresh_isl=4.0, thresh_pix=5.0, psf_snrtop=0.30,\
-        do_cache=True) #
+        rms_map=True, rms_box=(30*pixperbeam, 8*pixperbeam), do_cache=True) #
     # save the img object as a pickle file, so we can do interactive checks after pybdsf has run
     # turns out this doesn't work you have to run it inside an interactive python session
     # save_obj(img, 'pybdsf_processimage_'+imagename[:-5])
@@ -349,11 +353,11 @@ def do_sourcefinding(imagename):
 
 
 if __name__ == '__main__':
-
+    
     # Applying primary beam correction
     do_primarybeam_correction('560mhz_primarybeam.fits', '560mhz1000hours.fits')
     do_primarybeam_correction('1400mhz_primarybeam.fits', '1400mhz1000hours.fits')
-
+    
     #####################################################################
     ### TRAINING AREA ###
     # common to 560 and 1400 MHz images ###
@@ -374,9 +378,11 @@ if __name__ == '__main__':
     # this means Total_flux and Peak_flux are calculated at (560+1400/2) MHz. However, Total_flux_ch1 and Total_flux_ch2 give fluxes at 560 and 1400 MHz respectively.
     # Currently in spectral index mode peak_fluxes are not returned per freq band.
     # currently the log incorrectly says the ch0=1 is 560 MHz instead of 1400, i think this is a bug as Spec_Indx is correctly calculated. I may have the cube header in an unexpected format?
+    # get peak fluxes per channel
+    do_sourcefinding_cube('cube_560_1400_train.fits', collapse_mode='single', ch0=0)
+    do_sourcefinding_cube('cube_560_1400_train.fits', collapse_mode='single', ch0=1)
 
-
-
+    
     #####################################################################
     ### Whole image ###
     # Do sourcefinding on each image
@@ -391,11 +397,11 @@ if __name__ == '__main__':
     # Make image cube, images now at same resolution, same 1400 MHz sky area, same pixel size
     make_image_cube('560mhz1000hours_PBCOR_crop.fits', '1400mhz1000hours_PBCOR_crop_convolved_regrid.fits', 'cube_560_1400.fits')
     # do source finding with spectral index mode on the image cube
-    # same caveats as before
     do_sourcefinding_cube('cube_560_1400.fits', collapse_mode='average')
-    # do sourcefinding on the convolved 1400 MHz image, so we can get peak flux per source in the cube
-    do_sourcefinding('1400mhz1000hours_PBCOR_crop_convolved_regrid.fits')
-
+    # get peak fluxes per channel
+    do_sourcefinding_cube('cube_560_1400.fits', collapse_mode='single', ch0=0)
+    do_sourcefinding_cube('cube_560_1400.fits', collapse_mode='single', ch0=1)
+    # cross match them later
 
     # notes
     '''
