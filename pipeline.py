@@ -310,6 +310,7 @@ def do_sourcefinding_cube(imagename, collapse_mode='average', ch0=0):
     beam_min = hdu[0].header['BMIN']
     #beam_pa = f[0].header['BPA'] # not in SKA fits header, but we know it's circular
     beam_pa = 0
+    pixperbeam = beam_maj/hdu[0].header['CDELT2']
     hdu.close()
     # Run sourcefinding using some sensible hyper-parameters. PSF_vary and adaptive_rms_box is more computationally intensive, off for now
     img = bdsf.process_image(imagename, adaptive_rms_box=False, spectralindex_do=True, advanced_opts=True,\
