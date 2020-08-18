@@ -25,6 +25,22 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 
 
+
+    # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+
+
+#Loading/saving python data objects
+def save_obj(obj, name ):
+    with open(name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(name ):
+    with open(name + '.pkl', 'rb') as f:
+        return pickle.load(f)
+
+
+
     # ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
 
 
@@ -509,6 +525,8 @@ if __name__ == '__main__':
     # add class labels to df and re-calculate score
     df_class_pred = pd.DataFrame(classes_pred_all, columns=['class_pred'])
     df_new = df_560.reset_index().join(df_class_pred)
+    # write df to disk incase want to do further analysis
+    save_obj(df_new, 'df_560_classifications')
     # get df in format for scoring code
     df_scorer = cat_df_from_srl(df_new, use_pred_class=True)
     # run scoring code, get matched_df output. Truth cat has NaNs in for some reason?
@@ -545,6 +563,8 @@ if __name__ == '__main__':
     # add class labels to df and re-calculate score
     df_class_pred = pd.DataFrame(classes_pred_all, columns=['class_pred'])
     df_new = df_1400.reset_index().join(df_class_pred)
+    # write df to disk incase want to do further analysis
+    save_obj(df_new, 'df_1400_classifications')
     # get df in format for scoring code
     df_scorer = cat_df_from_srl(df_new, use_pred_class=True)
     # run scoring code, get matched_df output. Truth cat has NaNs in for some reason?
